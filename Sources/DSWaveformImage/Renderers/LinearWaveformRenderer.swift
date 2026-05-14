@@ -12,9 +12,15 @@ public struct LinearWaveformRenderer: WaveformRenderer {
     public func path(samples: [Float], with configuration: Waveform.Configuration, lastOffset: Int, position: Waveform.Position = .middle) -> CGPath {
         let graphRect = CGRect(origin: CGPoint.zero, size: configuration.size)
         let positionAdjustedGraphCenter = position.offset() * graphRect.size.height
+        let samplesNeeded = Int(configuration.size.width * configuration.scale)
+        let xOffset = CGFloat(samplesNeeded - samples.count) / configuration.scale
         var path = CGMutablePath()
 
-        path.move(to: CGPoint(x: 0, y: positionAdjustedGraphCenter))
+        // Anchor the closing point of the envelope at the actual x position of the first/last sample.
+        // When `samples.count != samplesNeeded` (e.g. during a resize before re-sampling completes),
+        // starting at x=0 would leave diagonal lines between (0, center) and the first/last samples
+        // that show up as a triangular notch in the filled envelope.
+        path.move(to: CGPoint(x: xOffset, y: positionAdjustedGraphCenter))
 
         if case .striped = configuration.style {
             path = draw(samples: samples, path: path, with: configuration, lastOffset: lastOffset, sides: .both, position: position)

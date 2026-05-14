@@ -41,6 +41,7 @@ public struct WaveformView<Content: View>: View {
     public var body: some View {
         GeometryReader { geometry in
             content(WaveformShape(samples: samples, configuration: configuration, renderer: renderer))
+                .scaleEffect(x: scaleDuringResize(for: geometry), y: 1, anchor: resizeAnchor)
                 .onAppear {
                     guard samples.isEmpty else { return }
                     update(size: geometry.size, url: audioURL, configuration: configuration)
@@ -76,6 +77,24 @@ public struct WaveformView<Content: View>: View {
         } else {
             updateTask(nil)
         }
+    }
+
+    /*
+     * During resizing, we only visually scale the previously-rendered shape to make it look seamless,
+     * before re-sampling the waveform for the new size (which is costly). The horizontal scale is
+     * derived from the ratio of the new width to the width the current samples were computed for.
+     * The anchor depends on the renderer: linear-style renderers offset the path to the right when
+     * `samples.count != samplesNeeded`, so the right edge is the stable reference. Circular renderers
+     * are centered, so x-only scaling would distort the circle and is skipped — the Shape re-evaluates
+     * with the new size each layout pass, which keeps the circle reasonable until re-sampling lands.
+     */
+    private func scaleDuringResize(for geometry: GeometryProxy) -> CGFloat {
+        guard currentSize.width > 0, !(renderer is CircularWaveformRenderer) else { return 1 }
+        return geometry.size.width / currentSize.width
+    }
+
+    private var resizeAnchor: UnitPoint {
+        renderer is CircularWaveformRenderer ? .center : .trailing
     }
 }
 
