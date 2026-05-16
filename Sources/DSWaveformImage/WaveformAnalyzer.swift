@@ -185,7 +185,7 @@ fileprivate extension WaveformAnalyzer {
 
         let amplitudes: [Float]
         if isStereo {
-            // StereoWaveformRenderer expects samples laid out as [allLeft..., allRight...]
+            // Renderers in `.stereo` mode expect samples laid out as [allLeft..., allRight...]
             amplitudes = Array(leftSamples.prefix(targetSampleCount)) + Array(rightSamples.prefix(targetSampleCount))
         } else {
             amplitudes = Array(leftSamples.prefix(targetSampleCount))
@@ -236,8 +236,8 @@ fileprivate extension WaveformAnalyzer {
             case .stereo:
                 guard let info = channelInfo(from: assetReader) else { return }
                 if info.channelCount < 2 {
-                    // Mono input: mirror the single channel into both top and bottom halves so
-                    // StereoWaveformRenderer still produces something sensible.
+                    // Mono input: mirror the single channel into both top and bottom halves so a
+                    // stereo renderer still produces something sensible.
                     let samples = downsample(from: basePointer, count: sampleLength, stride: 1, samplesPerPixel: samplesPerPixel)
                     result = ProcessResult(left: samples, right: samples, bytesConsumed: samples.count * samplesPerPixel * MemoryLayout<Int16>.size)
                 } else {

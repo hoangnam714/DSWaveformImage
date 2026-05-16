@@ -164,55 +164,41 @@ print("samples: \(samples)")
 
 ### Multi-Channel (Stereo) Support
 
-You can render individual channels from multi-channel audio files (e.g., stereo). This is useful for visualizing left and right channels separately:
+Channel selection lives on the renderer — the renderer decides which channel(s) of the audio it interprets. `Waveform.Configuration` stays purely about visual styling.
 
 ```swift
 let audioURL = Bundle.main.url(forResource: "stereo_sound", withExtension: "m4a")!
 let waveformImageDrawer = WaveformImageDrawer()
 
-// Render left channel (channel 0)
+// Render left channel only (channel 0)
 let leftChannelImage = try await waveformImageDrawer.waveformImage(
     fromAudioAt: audioURL,
-    with: .init(
-        size: waveformView.bounds.size,
-        style: .filled(.blue),
-        channelSelection: .specific(0) // Left channel
-    )
+    with: .init(size: waveformView.bounds.size, style: .filled(.blue)),
+    renderer: LinearWaveformRenderer(channelSelection: .specific(0))
 )
 
-// Render right channel (channel 1)
+// Render right channel only (channel 1)
 let rightChannelImage = try await waveformImageDrawer.waveformImage(
     fromAudioAt: audioURL,
-    with: .init(
-        size: waveformView.bounds.size,
-        style: .filled(.red),
-        channelSelection: .specific(1) // Right channel
-    )
+    with: .init(size: waveformView.bounds.size, style: .filled(.red)),
+    renderer: LinearWaveformRenderer(channelSelection: .specific(1))
 )
 
-// Render both stereo channels independently (left on top, right on bottom)
+// Render both stereo channels in one image (left on top, right on bottom)
 let stereoImage = try await waveformImageDrawer.waveformImage(
     fromAudioAt: audioURL,
-    with: .init(
-        size: waveformView.bounds.size,
-        style: .gradient([.blue, .cyan]),
-        channelSelection: .stereo // Both channels shown independently
-    ),
-    renderer: StereoWaveformRenderer()
+    with: .init(size: waveformView.bounds.size, style: .gradient([.blue, .cyan])),
+    renderer: LinearWaveformRenderer(channelSelection: .stereo)
 )
 
-// Or render all channels merged (default behavior)
+// All channels merged is the default; no extra parameter needed
 let mergedImage = try await waveformImageDrawer.waveformImage(
     fromAudioAt: audioURL,
-    with: .init(
-        size: waveformView.bounds.size,
-        style: .filled(.black),
-        channelSelection: .merged // All channels combined (default)
-    )
+    with: .init(size: waveformView.bounds.size, style: .filled(.black))
 )
 ```
 
-The same `channelSelection` parameter works with `WaveformAnalyzer`:
+If you're calling `WaveformAnalyzer` directly (to get raw samples for your own visualization), pass `channelSelection` there:
 
 ```swift
 let waveformAnalyzer = WaveformAnalyzer()
@@ -224,7 +210,7 @@ let leftSamples = try await waveformAnalyzer.samples(
     channelSelection: .specific(0)
 )
 
-// Get samples for stereo rendering (left samples followed by right samples)
+// Get [allLeft..., allRight...] for stereo rendering
 let stereoSamples = try await waveformAnalyzer.samples(
     fromAudioAt: audioURL,
     count: 200,

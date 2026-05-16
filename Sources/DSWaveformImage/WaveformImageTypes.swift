@@ -66,19 +66,34 @@ public extension WaveformRenderer {
     }
 }
 
+/**
+ Opt-in protocol for renderers that interpret a specific channel layout of the source audio.
+
+ `WaveformView` and `WaveformImageDrawer` check for this conformance to decide what to ask the
+ analyzer for. Renderers that don't conform implicitly use `.merged`. Conform a custom renderer
+ if it needs `.specific(N)` or `.stereo` sample layouts.
+ */
+public protocol ChannelAwareWaveformRenderer: WaveformRenderer {
+    var channelSelection: Waveform.ChannelSelection { get }
+}
+
 public enum Waveform {
     /**
      Channel selection for rendering multi-channel audio.
      */
     public enum ChannelSelection: Equatable, Sendable {
-        /// Merges all channels into a single waveform (default behavior, backward compatible)
+        /// Merges all channels into a single waveform (default behavior, backward compatible).
         case merged
-        
-        /// Renders only the specified channel (0-indexed). For stereo: 0 = left, 1 = right
+
+        /// Renders only the specified channel (0-indexed). For stereo: 0 = left, 1 = right.
         case specific(Int)
-        
-        /// Renders stereo channels independently. Left channel on top, right channel on bottom.
-        /// For non-stereo audio, falls back to merged behavior.
+
+        /// Returns samples for both stereo channels concatenated as `[allLeft..., allRight...]`.
+        ///
+        /// Use with `LinearWaveformRenderer(channelSelection: .stereo)`, which interprets the layout
+        /// as left-on-top / right-on-bottom. Call `WaveformAnalyzer.samples(...)` with this case
+        /// directly only if you intend to consume the raw L/R sample array yourself. For non-stereo
+        /// (mono) input the single channel is mirrored into both halves.
         case stereo
     }
     
@@ -220,9 +235,6 @@ public enum Waveform {
 
         /// Waveform antialiasing. If enabled, may reduce overall opacity. Default is `false`.
         public let shouldAntialias: Bool
-        
-        /// Channel selection for multi-channel audio. Default is `.merged` (all channels combined).
-        public let channelSelection: ChannelSelection
 
         public var shouldDamp: Bool {
             damping != nil
@@ -234,8 +246,7 @@ public enum Waveform {
                     damping: Damping? = nil,
                     scale: CGFloat = DSScreen.scale,
                     verticalScalingFactor: CGFloat = 0.95,
-                    shouldAntialias: Bool = false,
-                    channelSelection: ChannelSelection = .merged) {
+                    shouldAntialias: Bool = false) {
             guard verticalScalingFactor > 0 else {
                 preconditionFailure("verticalScalingFactor must be greater 0")
             }
@@ -247,7 +258,6 @@ public enum Waveform {
             self.scale = scale
             self.verticalScalingFactor = verticalScalingFactor
             self.shouldAntialias = shouldAntialias
-            self.channelSelection = channelSelection
         }
 
         /// Build a new `Waveform.Configuration` with only the given parameters replaced.
@@ -257,8 +267,7 @@ public enum Waveform {
                          damping: Damping? = nil,
                          scale: CGFloat? = nil,
                          verticalScalingFactor: CGFloat? = nil,
-                         shouldAntialias: Bool? = nil,
-                         channelSelection: ChannelSelection? = nil
+                         shouldAntialias: Bool? = nil
         ) -> Configuration {
             Configuration(
                 size: size ?? self.size,
@@ -267,8 +276,7 @@ public enum Waveform {
                 damping: damping ?? self.damping,
                 scale: scale ?? self.scale,
                 verticalScalingFactor: verticalScalingFactor ?? self.verticalScalingFactor,
-                shouldAntialias: shouldAntialias ?? self.shouldAntialias,
-                channelSelection: channelSelection ?? self.channelSelection
+                shouldAntialias: shouldAntialias ?? self.shouldAntialias
             )
         }
     }

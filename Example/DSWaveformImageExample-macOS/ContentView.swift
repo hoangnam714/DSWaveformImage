@@ -8,7 +8,7 @@ struct ContentView: View {
         colors[Int.random(in: 0..<colors.count)]
     }
 
-    @State private var audioURL: URL = Bundle.main.url(forResource: "example_sound", withExtension: "m4a")!
+    @State private var audioURL: URL = Bundle.main.url(forResource: "example_stereo", withExtension: "m4a")!
 
     @State var configuration: Waveform.Configuration = Waveform.Configuration(
         style: .gradient([.red, .green])
@@ -30,7 +30,12 @@ struct ContentView: View {
             .cornerRadius(10)
 
             if #available(macOS 12.0, *) {
-                WaveformView(audioURL: audioURL, configuration: configuration, renderer: CircularWaveformRenderer())
+                WaveformView(
+                    audioURL: audioURL,
+                    configuration: configuration,
+                    renderer: LinearWaveformRenderer(channelSelection: .stereo)
+                )
+                .padding()
             } else {
                 Text("at least macOS 12 is required")
             }

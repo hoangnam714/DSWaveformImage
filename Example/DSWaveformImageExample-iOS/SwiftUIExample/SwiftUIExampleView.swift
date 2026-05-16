@@ -163,9 +163,9 @@ struct SwiftUIExampleView: View {
                     WaveformView(audioURL: audioURL, configuration: .init(style: .striped(.init(color: .red, width: 2, spacing: 1))))
                     
                     // Multi-channel examples
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.blue), channelSelection: .specific(0)))
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.red), channelSelection: .specific(1)))
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .gradient([.blue, .cyan]), channelSelection: .stereo), renderer: StereoWaveformRenderer())
+                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.blue)), renderer: LinearWaveformRenderer(channelSelection: .specific(0)))
+                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.red)), renderer: LinearWaveformRenderer(channelSelection: .specific(1)))
+                    WaveformView(audioURL: audioURL, configuration: .init(style: .gradient([.blue, .cyan])), renderer: LinearWaveformRenderer(channelSelection: .stereo))
 
                     WaveformView(audioURL: audioURL, configuration: .init(style: .striped(.init(color: .black)))) { shape in
                         shape // override the shape styling
@@ -181,11 +181,6 @@ struct SwiftUIExampleView: View {
                     WaveformView(audioURL: audioURL, configuration: .init(style: .gradient([.yellow, .orange])), renderer: CircularWaveformRenderer())
                     WaveformView(audioURL: audioURL, configuration: .init(style: .gradientOutlined([.yellow, .orange], 1)), renderer: CircularWaveformRenderer())
                     WaveformView(audioURL: audioURL, configuration: .init(style: .striped(.init(color: .red, width: 2, spacing: 2))), renderer: CircularWaveformRenderer())
-                    
-                    // Multi-channel examples
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.blue), channelSelection: .specific(0)), renderer: CircularWaveformRenderer())
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.red), channelSelection: .specific(1)), renderer: CircularWaveformRenderer())
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .gradient([.blue, .cyan]), channelSelection: .stereo), renderer: StereoWaveformRenderer())
 
                     WaveformView(audioURL: audioURL, configuration: .init(style: .striped(.init(color: .black))), renderer: CircularWaveformRenderer()) { shape in
                         shape // override the shape styling
@@ -201,11 +196,6 @@ struct SwiftUIExampleView: View {
                     WaveformView(audioURL: audioURL, configuration: .init(style: .gradient([.yellow, .orange])), renderer: CircularWaveformRenderer(kind: .ring(0.5)))
                     WaveformView(audioURL: audioURL, configuration: .init(style: .gradientOutlined([.yellow, .orange], 1)), renderer: CircularWaveformRenderer(kind: .ring(0.5)))
                     WaveformView(audioURL: audioURL, configuration: .init(style: .striped(.init(color: .red, width: 2, spacing: 2))), renderer: CircularWaveformRenderer(kind: .ring(0.5)))
-                    
-                    // Multi-channel examples
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.blue), channelSelection: .specific(0)), renderer: CircularWaveformRenderer(kind: .ring(0.5)))
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .filled(.red), channelSelection: .specific(1)), renderer: CircularWaveformRenderer(kind: .ring(0.5)))
-                    WaveformView(audioURL: audioURL, configuration: .init(style: .gradient([.blue, .cyan]), channelSelection: .stereo), renderer: StereoWaveformRenderer())
 
                     WaveformView(audioURL: audioURL, configuration: .init(style: .striped(.init(color: .black))), renderer: CircularWaveformRenderer(kind: .ring(0.5))) { shape in
                         shape // override the shape styling
