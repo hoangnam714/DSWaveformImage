@@ -120,7 +120,11 @@ extension WaveformImageDrawer {
     /// as-is. For `.normalized` we shift the loudest sample to the renderer's "loud" end (`0`) and
     /// stretch the rest of the range to match, so a quiet recording fills the canvas as fully as a
     /// loud one. The shape of the envelope is preserved.
-    func applyAmplitudeScaling(_ samples: [Float], scaling: Waveform.AmplitudeScaling) -> [Float] {
+    ///
+    /// Exposed so that callers driving the lower-level `renderer.render(samples:on:...)` entry point
+    /// directly (e.g. bespoke canvas pipelines) can reproduce the same prep `WaveformImageDrawer`
+    /// runs internally.
+    public func applyAmplitudeScaling(_ samples: [Float], scaling: Waveform.AmplitudeScaling) -> [Float] {
         switch scaling {
         case .absolute:
             return samples
@@ -133,15 +137,14 @@ extension WaveformImageDrawer {
         }
     }
 
-    /// Damp the samples for a smoother animation.
-    func damp(_ samples: [Float], with configuration: Waveform.Configuration) -> [Float] {
-        damp(samples, with: configuration, isStereo: false)
-    }
-
     /// Damp the samples for a smoother animation. In `.stereo` mode samples are laid out as
     /// `[allLeft..., allRight...]`, so damping over the concatenated array would only fade the start of
     /// L and the end of R. Split and damp each channel half independently.
-    func damp(_ samples: [Float], with configuration: Waveform.Configuration, isStereo: Bool) -> [Float] {
+    ///
+    /// Exposed so that callers driving the lower-level `renderer.render(samples:on:...)` entry point
+    /// directly (e.g. bespoke canvas pipelines) can reproduce the same prep `WaveformImageDrawer`
+    /// runs internally.
+    public func damp(_ samples: [Float], with configuration: Waveform.Configuration, isStereo: Bool) -> [Float] {
         guard let damping = configuration.damping, damping.percentage > 0 else {
             return samples
         }
@@ -193,10 +196,14 @@ private extension WaveformImageDrawer {
             samples = try await waveformAnalyzer.samples(fromAudioAt: audioAssetURL, count: sampleCount, channelSelection: channelSelection, qos: qos)
             effectiveRenderer = renderer
         }
+        // Amplitude scaling happens here because `waveformImage(from:)` is a thin "draw what you've
+        // got" surface — it expects samples already adjusted to the requested `amplitudeScaling`.
+        // Damping, in contrast, is applied by `waveformImage(from:)` itself (stereo-aware), so we
+        // don't pre-damp here — doing so would damp twice for mono and damp across the L/R
+        // boundary for stereo.
         let scaledSamples = applyAmplitudeScaling(samples, scaling: configuration.amplitudeScaling)
-        let dampedSamples = configuration.shouldDamp ? self.damp(scaledSamples, with: configuration, isStereo: channelSelection == .stereo) : scaledSamples
 
-        if let image = waveformImage(from: dampedSamples, with: configuration, renderer: effectiveRenderer, position: position) {
+        if let image = waveformImage(from: scaledSamples, with: configuration, renderer: effectiveRenderer, position: position) {
             return image
         } else {
             throw GenerationError.generic
