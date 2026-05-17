@@ -66,21 +66,7 @@ func render(
     amplitudeScaling: Waveform.AmplitudeScaling = .absolute,
     size: CGSize = cardSize
 ) async throws -> NSImage {
-    // Workaround: `WaveformImageDrawer.waveformImage(fromAudioAt:)` is broken for stereo — it asks the
-    // analyzer for `width * scale` samples and then the static path rejects the doubled stereo array
-    // it gets back. Skip that path for stereo renderers and assemble the image from raw analyzer
-    // output instead.
-    let isStereo = (renderer as? ChannelAwareWaveformRenderer)?.channelSelection == .stereo
-    if isStereo {
-        return try await renderStereo(
-            style: style,
-            renderer: renderer,
-            size: size,
-            verticalScalingFactor: verticalScalingFactor,
-            amplitudeScaling: amplitudeScaling
-        )
-    }
-    return try await drawer.waveformImage(
+    try await drawer.waveformImage(
         fromAudioAt: audioURL,
         with: config(
             style: style,
@@ -91,60 +77,6 @@ func render(
         ),
         renderer: renderer
     )
-}
-
-/// Stereo bypass — the library's `waveformImage(fromAudioAt:)` path is broken for stereo (its
-/// static count check rejects the doubled `[allLeft..., allRight...]` array the analyzer returns),
-/// so we render via a raw CGContext using the renderer's lower-level `render(samples:on:…)` entry.
-/// Asks the analyzer for `width * scale` samples per channel so each half drives a full-canvas
-/// span; damping is skipped because the drawer's `damp(…)` helpers aren't public.
-func renderStereo(
-    style: Waveform.Style,
-    renderer: WaveformRenderer,
-    size: CGSize,
-    verticalScalingFactor: CGFloat,
-    amplitudeScaling: Waveform.AmplitudeScaling
-) async throws -> NSImage {
-    let cfg = Waveform.Configuration(
-        size: size,
-        style: style,
-        damping: nil,
-        scale: renderScale,
-        verticalScalingFactor: verticalScalingFactor,
-        amplitudeScaling: amplitudeScaling
-    )
-    let perChannelCount = Int(cfg.size.width * cfg.scale)
-    let samples = try await WaveformAnalyzer().samples(
-        fromAudioAt: audioURL,
-        count: perChannelCount,
-        channelSelection: .stereo
-    )
-
-    let pixelWidth = Int(cfg.size.width * cfg.scale)
-    let pixelHeight = Int(cfg.size.height * cfg.scale)
-    guard let context = CGContext(
-        data: nil,
-        width: pixelWidth,
-        height: pixelHeight,
-        bitsPerComponent: 8,
-        bytesPerRow: 0,
-        space: CGColorSpaceCreateDeviceRGB(),
-        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-    ) else {
-        struct StereoContextError: Error {}
-        throw StereoContextError()
-    }
-    // CGContext's default y-up coordinate system mirrors what the renderer expects (the rest of
-    // the library renders into NSGraphicsContext(flipped: false) contexts). Scale so renderer math
-    // in points aligns with the bitmap's pixel grid.
-    context.scaleBy(x: cfg.scale, y: cfg.scale)
-    renderer.render(samples: samples, on: context, with: cfg, lastOffset: 0, position: .middle)
-
-    guard let cgImage = context.makeImage() else {
-        struct StereoImageError: Error {}
-        throw StereoImageError()
-    }
-    return NSImage(cgImage: cgImage, size: cfg.size)
 }
 
 // MARK: - Composition + I/O

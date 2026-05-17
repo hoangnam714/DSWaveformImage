@@ -37,6 +37,50 @@ func makeSilentAudioFile(durationSeconds: Double, sampleRate: Double = 44_100) t
     return url
 }
 
+/// Writes a stereo 16-bit PCM WAV with independent sine tones in the left and right channels —
+/// `leftAmplitude` and `rightAmplitude` are deliberately distinct so renderers and analyzers that
+/// confuse the two channels produce a visibly wrong result rather than silently coincidental output.
+func makeStereoAudioFile(durationSeconds: Double, leftFrequency: Double = 440, rightFrequency: Double = 880, leftAmplitude: Double = 0.5, rightAmplitude: Double = 0.3, sampleRate: Double = 44_100) throws -> URL {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("dswaveform-test-stereo-\(UUID().uuidString).wav")
+
+    let settings: [String: Any] = [
+        AVFormatIDKey: kAudioFormatLinearPCM,
+        AVSampleRateKey: sampleRate,
+        AVNumberOfChannelsKey: 2,
+        AVLinearPCMBitDepthKey: 16,
+        AVLinearPCMIsBigEndianKey: false,
+        AVLinearPCMIsFloatKey: false,
+        AVLinearPCMIsNonInterleaved: false,
+    ]
+    let file = try AVAudioFile(forWriting: url, settings: settings)
+    let format = file.processingFormat
+    let chunkFrames: AVAudioFrameCount = 44_100
+    let totalFrames = AVAudioFrameCount(durationSeconds * sampleRate)
+    let twoPiOverSRLeft = 2 * Double.pi * leftFrequency / sampleRate
+    let twoPiOverSRRight = 2 * Double.pi * rightFrequency / sampleRate
+    var written: AVAudioFrameCount = 0
+    while written < totalFrames {
+        let frames = min(chunkFrames, totalFrames - written)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else {
+            throw NSError(domain: "TestSupport", code: 1, userInfo: [NSLocalizedDescriptionKey: "buffer alloc failed"])
+        }
+        buffer.frameLength = frames
+        if let channels = buffer.floatChannelData {
+            let left = channels[0]
+            let right = channels[1]
+            for i in 0..<Int(frames) {
+                let t = Double(Int(written) + i)
+                left[i] = Float(sin(twoPiOverSRLeft * t) * leftAmplitude)
+                right[i] = Float(sin(twoPiOverSRRight * t) * rightAmplitude)
+            }
+        }
+        try file.write(from: buffer)
+        written += frames
+    }
+    return url
+}
+
 /// Writes a mono 16-bit PCM WAV containing a single sine tone at `frequency` Hz. Used by spectral
 /// tests to verify that a known input frequency lands in the expected normalized centroid range.
 func makeSineToneAudioFile(durationSeconds: Double, frequency: Double, sampleRate: Double = 44_100, amplitude: Double = 0.5) throws -> URL {
