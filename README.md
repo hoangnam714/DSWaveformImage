@@ -1,312 +1,305 @@
-DSWaveformImage - iOS, macOS & visionOS realtime audio waveform rendering
-===============
+# DSWaveformImage
+
 [![Swift Package Manager compatible](https://img.shields.io/badge/spm-compatible-brightgreen.svg?style=flat)](https://swift.org/package-manager)
 
-DSWaveformImage offers a native interfaces for drawing the envelope waveform of audio data 
-in **iOS**, **iPadOS**, **macOS**, **visionOS** or via Catalyst. To do so, you can use
+Native audio waveform rendering for **iOS**, **iPadOS**, **macOS**, **visionOS**, and Mac Catalyst.
 
-* [`WaveformImageView`](Sources/DSWaveformImageViews/UIKit/WaveformImageView.swift) (UIKit) / [`WaveformView`](Sources/DSWaveformImageViews/SwiftUI/WaveformView.swift) (SwiftUI) to render a static waveform from an audio file or 
-* [`WaveformLiveView`](Sources/DSWaveformImageViews/UIKit/WaveformLiveView.swift) (UIKit) / [`WaveformLiveCanvas`](Sources/DSWaveformImageViews/SwiftUI/WaveformLiveCanvas.swift) (SwiftUI) to realtime render a waveform of live audio data (e.g. from `AVAudioRecorder`)
-* `WaveformImageDrawer` to generate a waveform `UIImage` from an audio file
+<p align="center"><img src="./Promotion/readme/hero.png" alt="Waveform hero" width="800"></p>
 
-Additionally, you can get a waveform's (normalized) `[Float]` samples directly as well by
-creating an instance of `WaveformAnalyzer`.
+Three layers, pick whichever fits:
 
-Example UI (included in repository)
-------------
+- **SwiftUI views** — [`WaveformView`](Sources/DSWaveformImageViews/SwiftUI/WaveformView.swift), [`WaveformLiveCanvas`](Sources/DSWaveformImageViews/SwiftUI/WaveformLiveCanvas.swift), [`WaveformShape`](Sources/DSWaveformImageViews/SwiftUI/WaveformShape.swift)
+- **UIKit views** — [`WaveformImageView`](Sources/DSWaveformImageViews/UIKit/WaveformImageView.swift), [`WaveformLiveView`](Sources/DSWaveformImageViews/UIKit/WaveformLiveView.swift)
+- **Raw API** — [`WaveformImageDrawer`](Sources/DSWaveformImage/WaveformImageDrawer.swift) renders to `UIImage` / `NSImage`; [`WaveformAnalyzer`](Sources/DSWaveformImage/WaveformAnalyzer.swift) gives you the normalized `[Float]` samples to do your own thing with.
 
-For a practical real-world example usage of a SwiftUI live audio recording waveform rendering, see [RecordingIndicatorView](Example/DSWaveformImageExample-iOS/SwiftUIExample/SwiftUIExampleView.swift).
+The `Example/` directory contains a multi-platform showcase ([`WaveformGalleryView`](Example/Shared/WaveformGalleryView.swift)) that exercises every public surface interactively — recommended for poking around with renderers, styles, and configurations together.
 
+## Installation
 
-<img src="./Promotion/recorder-example.png" alt="Audio Recorder Example" width="358">
+Add the package via SPM:
 
-More related iOS Controls
-------------
+```
+https://github.com/dmrschmidt/DSWaveformImage   (Up to Next Major from 14.0.0)
+```
 
-You may also find the following iOS controls written in Swift interesting:
+```swift
+import DSWaveformImage       // core: drawer, analyzer, renderers, types
+import DSWaveformImageViews  // UIKit + SwiftUI views (optional)
+```
 
-* [SwiftColorWheel](https://github.com/dmrschmidt/SwiftColorWheel) - a delightful color picker
-* [QRCode](https://github.com/dmrschmidt/QRCode) - a customizable QR code generator
+## Quick start
 
-If you really like this library (aka Sponsoring)
-------------
-I'm doing all this for fun and joy and because I strongly believe in the power of open source. On the off-chance though, that using my library has brought joy to you and you just feel like saying "thank you", I would smile like a 4-year old getting a huge ice cream cone, if you'd support my via one of the sponsoring buttons ☺️💕
+**SwiftUI**
+
+```swift
+WaveformView(audioURL: url)
+```
+
+**UIKit**
+
+```swift
+let view = WaveformImageView(frame: .init(x: 0, y: 0, width: 500, height: 300))
+view.waveformAudioURL = url
+```
+
+**Raw `UIImage` / `NSImage`**
+
+```swift
+let image = try await WaveformImageDrawer().waveformImage(
+    fromAudioAt: url,
+    with: .init(size: size, style: .filled(.black))
+)
+```
+
+# Gallery
+
+Every feature, once. Most options compose with most others — the example app's [`WaveformGalleryView`](Example/Shared/WaveformGalleryView.swift) lets you explore the permutations interactively.
+
+## Linear renderer
+
+[`LinearWaveformRenderer`](Sources/DSWaveformImage/Renderers/LinearWaveformRenderer.swift) is the default — a horizontal 2D amplitude envelope. `sides` controls which side of the centerline the envelope occupies (`.both`, `.up`, `.down`). `.stereo` is a factory that interprets a two-channel sample array as left-on-top / right-on-bottom in a single image.
+
+<img src="./Promotion/readme/renderers.png" alt="Linear and stereo renderers" width="800">
+
+```swift
+WaveformView(audioURL: url, renderer: LinearWaveformRenderer())            // default
+WaveformView(audioURL: url, renderer: LinearWaveformRenderer(sides: .up))  // top-only
+WaveformView(audioURL: url, renderer: LinearWaveformRenderer.stereo)       // stereo
+```
+
+## Circular renderer
+
+[`CircularWaveformRenderer`](Sources/DSWaveformImage/Renderers/CircularWaveformRenderer.swift) wraps the envelope around a circle. `.circle` fills the disk; `.ring(innerFraction)` cuts a hole, producing an annulus driven by the same envelope.
+
+<img src="./Promotion/readme/renderers-circular.png" alt="Circular and ring renderers" width="700">
+
+```swift
+WaveformView(audioURL: url, renderer: CircularWaveformRenderer(kind: .circle))
+WaveformView(audioURL: url, renderer: CircularWaveformRenderer(kind: .ring(0.5)))
+```
+
+You can also implement your own renderer by conforming to [`WaveformRenderer`](Sources/DSWaveformImage/Renderers/WaveformRenderer.swift).
+
+## Styles
+
+[`Waveform.Style`](Sources/DSWaveformImage/WaveformImageTypes.swift) controls how the envelope is drawn — same renderer throughout. Top to bottom: `.filled`, `.outlined`, `.gradient`, `.gradientOutlined`, `.striped`.
+
+<img src="./Promotion/readme/styles.png" alt="Five rendering styles" width="800">
+
+```swift
+.filled(.indigo)
+.outlined(.indigo, 1.5)
+.gradient([.blue, .purple])
+.gradientOutlined([.blue, .purple], 1.5)
+.striped(.init(color: .indigo, width: 3, spacing: 3))
+```
+
+## Spectral tint
+
+`.spectralTint(low:high:)` colors each amplitude column by its spectral centroid — bass-heavy columns get the `low` color, treble-heavy columns get the `high` color, with smooth interpolation in between. The envelope shape stays identical to the non-spectral path; only the fill follows the audio's frequency content over time.
+
+<img src="./Promotion/readme/spectral.png" alt="Spectral tint with two color presets" width="800">
+
+```swift
+WaveformView(audioURL: url, configuration: .init(
+    style: .spectralTint(low: .systemBlue, high: .systemRed)
+))
+```
+
+Renderers that opt in to spectral data conform to [`SpectralAwareWaveformRenderer`](Sources/DSWaveformImage/WaveformImageTypes.swift); ones that don't fall back to filling with the `low` color. `LinearWaveformRenderer` conforms by default.
+
+## Channel selection
+
+Channel handling lives on the renderer, not on `Configuration`. `.merged` (default) sums all channels; `.specific(index)` picks one; `.stereo` is its own thing — see below.
+
+<img src="./Promotion/readme/channels.png" alt="Merged, left, and right channel selection" width="800">
+
+```swift
+LinearWaveformRenderer(channelSelection: .merged)        // default
+LinearWaveformRenderer(channelSelection: .specific(0))   // left only
+LinearWaveformRenderer(channelSelection: .specific(1))   // right only
+```
+
+When you're calling [`WaveformAnalyzer`](Sources/DSWaveformImage/WaveformAnalyzer.swift) directly for raw samples, pass `channelSelection` there instead.
+
+## Stereo
+
+`LinearWaveformRenderer.stereo` interprets a `[allLeft..., allRight...]` sample array as left on top, right on bottom, in one image.
+
+<img src="./Promotion/readme/stereo.png" alt="Stereo waveform" width="800">
+
+```swift
+WaveformView(audioURL: url, configuration: .init(
+    style: .gradient([.blue, .red])
+), renderer: LinearWaveformRenderer.stereo)
+```
+
+## Amplitude scaling
+
+`Waveform.AmplitudeScaling` chooses how sample loudness maps to the canvas:
+
+- `.absolute` (default) — fixed `0 dBFS` reference. Quiet recordings render visibly smaller than loud ones; loudness across files is preserved.
+- `.normalized` — shift the file's peak to the canvas edge so every clip fills the canvas regardless of recording level. The envelope shape is preserved.
+
+```swift
+.init(style: .filled(.indigo), amplitudeScaling: .normalized)
+```
+
+## Damping
+
+`Waveform.Damping` fades the envelope toward zero at one or both ends — useful for live capture where the leading/trailing edge would otherwise look like a hard cut.
+
+<img src="./Promotion/readme/damping.png" alt="Damping off and on" width="800">
+
+```swift
+.init(style: .filled(.indigo), damping: .init(percentage: 0.18, sides: .both))
+```
+
+Pass a custom `easing:` closure to shape the falloff (e.g. `{ x in pow(x, 4) }`).
+
+## Custom shape (SwiftUI)
+
+`WaveformView`'s trailing closure hands you the underlying [`WaveformShape`](Sources/DSWaveformImageViews/SwiftUI/WaveformShape.swift) so you can apply any SwiftUI `ShapeStyle` — `LinearGradient`, masks, animations, anything Shape supports. Thanks to [@alfogrillo](https://github.com/alfogrillo) for the API.
+
+```swift
+WaveformView(audioURL: url) { shape in
+    shape.stroke(
+        LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .leading, endPoint: .trailing),
+        style: StrokeStyle(lineWidth: 3, lineCap: .round)
+    )
+} placeholder: {
+    ProgressView()
+}
+```
+
+If you already have samples, instantiate [`WaveformShape`](Sources/DSWaveformImageViews/SwiftUI/WaveformShape.swift) directly:
+
+```swift
+WaveformShape(samples: samples).fill(.indigo)
+```
+
+## Live recording
+
+[`WaveformLiveCanvas`](Sources/DSWaveformImageViews/SwiftUI/WaveformLiveCanvas.swift) (SwiftUI) and [`WaveformLiveView`](Sources/DSWaveformImageViews/UIKit/WaveformLiveView.swift) (UIKit) render a `[Float]` sample stream in real time. Pair with `AVAudioRecorder` or any other source that reports per-frame amplitudes.
+
+<p align="center"><img src="./Promotion/readme/live-recording.png" alt="Live recording screen" width="300"></p>
+
+```swift
+// SwiftUI
+WaveformLiveCanvas(samples: recorder.samples, shouldDrawSilencePadding: true)
+
+// UIKit
+let view = WaveformLiveView()
+recorder.updateMeters()
+let amplitude = 1 - pow(10, recorder.averagePower(forChannel: 0) / 20)
+view.add(sample: amplitude)
+```
+
+For a complete recording demo see `LiveRecordingShowcase` in the [example app](Example/Shared/LiveRecordingShowcase.swift).
+
+## Progress / playback
+
+Render the waveform once and overlay a progress-clipped tint on top. The base shape stays static; only the foreground mask reacts to playback time.
+
+<p align="center"><img src="./Promotion/readme/progress.png" alt="Progress / scrubber screen" width="300"></p>
+
+```swift
+GeometryReader { geometry in
+    WaveformView(audioURL: url) { shape in
+        shape.fill(.secondary)
+        shape.fill(.accentColor).mask(alignment: .leading) {
+            Rectangle().frame(width: geometry.size.width * progress)
+        }
+    }
+}
+```
+
+The same idea works with two image views and a `CAShapeLayer` mask in UIKit — see [`UIKitShowcaseViewController.swift`](Example/DSWaveformImageExample-iOS/UIKitShowcaseViewController.swift). There's no built-in `ProgressWaveformView`; every app's playback model is different and the masking trick is small enough that wrapping it would just be in your way.
+
+## Loading remote audio
+
+`WaveformAnalyzer` and `WaveformImageDrawer` work with local file URLs. For a remote-audio recipe see [#22](https://github.com/dmrschmidt/DSWaveformImage/issues/22).
+
+# Migration
+
+### In 15.0.0 (upcoming)
+
+- **`Waveform.Style.spectralTint(low:high:)` is a new case.** Exhaustive `switch` statements over `Waveform.Style` will need to add it (or an `@unknown default`).
+- **`Position.middle` waveforms render smaller at `verticalScalingFactor=1`.** The previous math overshot, letting peak-loud samples extend a full canvas height in each direction from the centerline. They now fill exactly the budget the centerline leaves available (half-canvas per direction for `.middle`, full canvas for `.top` / `.bottom`). Bump `verticalScalingFactor` if you want the old visual size.
+- **Stereo + damping** now damps each channel half independently. Previously the damping ran across the concatenated `[allLeft..., allRight...]` array, so only the start of L and the end of R faded; the middle (end of L + start of R) got no damping at all.
+- **Live stereo drawing window** doubled internally to cover both channels — fixes the left channel being silently dropped from the visible scroll window.
+- `LinearWaveformRenderer` now also conforms to the new `SpectralAwareWaveformRenderer` protocol (additive).
+- New `Waveform.AmplitudeScaling` (defaults to `.absolute`, preserves prior behavior). Adds an `amplitudeScaling:` parameter to `Waveform.Configuration.init` / `with(...)`, both with defaults.
+- New `WaveformAnalyzer.analyze(...)` returns amplitudes + per-slot spectral centroids in one pass.
+
+### In 14.0.0
+
+- Minimum deployment target is iOS 15.0, macOS 12.0 to remove internal usage of deprecated APIs.
+- `WaveformAnalyzer` and `WaveformImageDrawer` now return `Result<[Float] | DSImage, Error>` when used with completion handlers.
+- `WaveformAnalyzer` is stateless and takes the URL in `samples(fromAudioAt:count:qos:)` instead of its constructor.
+- `WaveformView` has a new constructor that exposes the underlying `WaveformShape`, see [#78](https://github.com/dmrschmidt/DSWaveformImage/issues/78).
+
+### In 13.0.0
+
+- `dampening` → `damping` everywhere (most notably in `Waveform.Configuration`). See [#64](https://github.com/dmrschmidt/DSWaveformImage/issues/64).
+- `.outlined` and `.gradientOutlined` styles were added to `Waveform.Style`.
+- `Waveform.Position` was removed. Move positioning responsibility to the parent view.
+
+### In 12.0.0
+
+- The rendering pipeline was split out from analysis — implement [`WaveformRenderer`](Sources/DSWaveformImage/Renderers/WaveformRenderer.swift) for custom renderers.
+- New [`CircularWaveformRenderer`](Sources/DSWaveformImage/Renderers/CircularWaveformRenderer.swift).
+- `position` removed from `Waveform.Configuration`, see [0447737](https://github.com/dmrschmidt/DSWaveformImage/commit/044773782092becec0424527f6feef061988db7a).
+- New `Waveform.Style` options need accounting for in `switch` statements.
+
+### In 11.0.0
+
+- The library was split into `DSWaveformImage` and `DSWaveformImageViews`. Add the additional `import DSWaveformImageViews` if you use the native views.
+- SwiftUI views moved from `Binding` to plain values.
+
+### In 9.0.0
+
+- Public API names tightened; all types grouped under the `Waveform` enum namespace (`WaveformConfiguration` → `Waveform.Configuration`, etc.).
+
+### In 7.0.0
+
+- Colors moved into associated values on the respective `style` enum case.
+
+`Waveform` and the `UIImage` category were removed in 6.0.0 to simplify the API.
+
+# More related iOS Controls
+
+Other iOS controls in Swift I maintain:
+
+- [SwiftColorWheel](https://github.com/dmrschmidt/SwiftColorWheel) — a delightful color picker
+- [QRCode](https://github.com/dmrschmidt/QRCode) — a customizable QR code generator
+
+# If you really like this library (aka Sponsoring)
+
+I'm doing all this for fun and joy and because I strongly believe in the power of open source. On the off-chance though, that using my library has brought joy to you and you just feel like saying "thank you", I would smile like a 4-year old getting a huge ice cream cone, if you'd support me via one of the sponsoring buttons ☺️💕
 
 Alternatively, consider supporting me by downloading one of my side project iOS apps. If you're feeling in the mood of sending someone else a lovely gesture of appreciation, maybe check out my iOS app [💌 SoundCard](https://www.soundcard.io) to send them a real postcard with a personal audio message. Or download my ad-supported free to play game [🕹️ Snekris for iOS](https://apps.apple.com/us/app/snekris-play-like-its-1999/id6446217693).
 
 <p float="left">
   <a href="https://www.buymeacoffee.com/dmrschmidt" target="_blank">
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="217" height="60"></a>
-  
+
   <a href="https://www.snekris.com" target="_blank">
     <img src="http://snekris.com/images/snekris-banner.png" alt="Play Snekris" width="217" height="60"></a>
 </p>
 
-
-Installation
-------------
-
-* use SPM: add `https://github.com/dmrschmidt/DSWaveformImage` and set "Up to Next Major" with "14.0.0"
-
-```swift
-import DSWaveformImage // for core classes to generate `UIImage` / `NSImage` directly
-import DSWaveformImageViews // if you want to use the native UIKit / SwiftUI views
-```
-
-Usage
------
-
-`DSWaveformImage` provides 3 kinds of tools to use
-* native SwiftUI views - [SwiftUI example usage code](Example/DSWaveformImageExample-iOS/SwiftUIExample/SwiftUIExampleView.swift)
-* native UIKit views - [UIKit example usage code](Example/DSWaveformImageExample-iOS/ViewController.swift)
-* access to the raw renderes and processors
-
-The core renderes and processors as well as SwiftUI views natively support iOS & macOS, using `UIImage` & `NSImage` respectively.
-
-### SwiftUI
-
-#### `WaveformView` - renders a one-off waveform from an audio file:
-
-```swift
-@State var audioURL = Bundle.main.url(forResource: "example_sound", withExtension: "m4a")!
-WaveformView(audioURL: audioURL)
-```
-
-Default styling may be overridden if you have more complex requirements:
-
-```swift
-@State var audioURL = Bundle.main.url(forResource: "example_sound", withExtension: "m4a")!
-WaveformView(audioURL: audioURL) { waveformShape in
-    waveformShape
-        .stroke(LinearGradient(colors: [.red, [.green, red, orange], startPoint: .zero, endPoint: .topTrailing), lineWidth: 3)
-}
-```
-
-Similar to [AsyncImage](https://developer.apple.com/documentation/swiftui/asyncimage/init(url:scale:content:placeholder:)), a placeholder can be
-set to show until the load and render operation completes successfully. Thanks to [@alfogrillo](https://github.com/alfogrillo)!
-
-```swift
-WaveformView(audioURL: audioURL) { waveformShape in
-    waveformShape
-        .stroke(LinearGradient(colors: [.red, [.green, red, orange], startPoint: .zero, endPoint: .topTrailing), lineWidth: 3)
-} placeholder: {
-    ProgressView()
-}
-```
-
-#### `WaveformLiveCanvas` - renders a live waveform from `(0...1)` normalized samples:
-
-```swift
-@StateObject private var audioRecorder: AudioRecorder = AudioRecorder() // just an example
-WaveformLiveCanvas(samples: audioRecorder.samples)
-```
-
-### UIKit
-
-#### `WaveformImageView` - renders a one-off waveform from an audio file:
-
-```swift
-let audioURL = Bundle.main.url(forResource: "example_sound", withExtension: "m4a")!
-waveformImageView = WaveformImageView(frame: CGRect(x: 0, y: 0, width: 500, height: 300)
-waveformImageView.waveformAudioURL = audioURL
-```
-
-#### `WaveformLiveView` - renders a live waveform from `(0...1)` normalized samples:
-
-Find a full example in the [sample project's RecordingViewController](Example/DSWaveformImageExample-iOS/RecordingViewController.swift).
-
-```swift
-let waveformView = WaveformLiveView()
-
-// configure and start AVAudioRecorder
-let recorder = AVAudioRecorder()
-recorder.isMeteringEnabled = true // required to get current power levels
-
-// after all the other recording (omitted for focus) setup, periodically (every 20ms or so):
-recorder.updateMeters() // gets the current value
-let currentAmplitude = 1 - pow(10, recorder.averagePower(forChannel: 0) / 20)
-waveformView.add(sample: currentAmplitude)
-```
-
-### Raw API
-
-#### Configuration
-
-*Note:* Calculations are always performed and returned on a background thread, so make sure to return to the main thread before doing any UI work.
-
-Check `Waveform.Configuration` in [WaveformImageTypes](./Sources/DSWaveformImage/WaveformImageTypes.swift) for various configuration options.
-
-#### `WaveformImageDrawer` - creates a `UIImage` waveform from an audio file:
-
-```swift
-let waveformImageDrawer = WaveformImageDrawer()
-let audioURL = Bundle.main.url(forResource: "example_sound", withExtension: "m4a")!
-let image = try await waveformImageDrawer.waveformImage(
-    fromAudioAt: audioURL,
-    with: .init(size: topWaveformView.bounds.size, style: .filled(UIColor.black)),
-    renderer: LinearWaveformRenderer()
-)
-
-// need to jump back to main queue
-DispatchQueue.main.async {
-    self.topWaveformView.image = image
-}
-```
-
-#### `WaveformAnalyzer` - calculates an audio file's waveform sample:
-
-```swift
-let audioURL = Bundle.main.url(forResource: "example_sound", withExtension: "m4a")!
-waveformAnalyzer = WaveformAnalyzer()
-let samples = try await waveformAnalyzer.samples(fromAudioAt: audioURL, count: 200)
-print("samples: \(samples)")
-```
-
-### Multi-Channel (Stereo) Support
-
-Channel selection lives on the renderer — the renderer decides which channel(s) of the audio it interprets. `Waveform.Configuration` stays purely about visual styling.
-
-```swift
-let audioURL = Bundle.main.url(forResource: "example_stereo", withExtension: "m4a")!
-let waveformImageDrawer = WaveformImageDrawer()
-
-// Render left channel only (channel 0)
-let leftChannelImage = try await waveformImageDrawer.waveformImage(
-    fromAudioAt: audioURL,
-    with: .init(size: waveformView.bounds.size, style: .filled(.blue)),
-    renderer: LinearWaveformRenderer(channelSelection: .specific(0))
-)
-
-// Render right channel only (channel 1)
-let rightChannelImage = try await waveformImageDrawer.waveformImage(
-    fromAudioAt: audioURL,
-    with: .init(size: waveformView.bounds.size, style: .filled(.red)),
-    renderer: LinearWaveformRenderer(channelSelection: .specific(1))
-)
-
-// Render both stereo channels in one image (left on top, right on bottom)
-let stereoImage = try await waveformImageDrawer.waveformImage(
-    fromAudioAt: audioURL,
-    with: .init(size: waveformView.bounds.size, style: .gradient([.blue, .cyan])),
-    renderer: LinearWaveformRenderer.stereo
-)
-
-// All channels merged is the default; no extra parameter needed
-let mergedImage = try await waveformImageDrawer.waveformImage(
-    fromAudioAt: audioURL,
-    with: .init(size: waveformView.bounds.size, style: .filled(.black))
-)
-```
-
-If you're calling `WaveformAnalyzer` directly (to get raw samples for your own visualization), pass `channelSelection` there:
-
-```swift
-let waveformAnalyzer = WaveformAnalyzer()
-
-// Get samples for left channel only
-let leftSamples = try await waveformAnalyzer.samples(
-    fromAudioAt: audioURL,
-    count: 200,
-    channelSelection: .specific(0)
-)
-
-// Get [allLeft..., allRight...] for stereo rendering
-let stereoSamples = try await waveformAnalyzer.samples(
-    fromAudioAt: audioURL,
-    count: 200,
-    channelSelection: .stereo
-)
-```
-
-### Playback Progress Indication
-
-If you're playing back audio files and would like to indicate the playback progress to your users, you can [find inspiration in the example app](https://github.com/dmrschmidt/DSWaveformImage/blob/main/Example/DSWaveformImageExample-iOS/ProgressViewController.swift). UIKit and [SwiftUI](https://github.com/dmrschmidt/DSWaveformImage/blob/main/Example/DSWaveformImageExample-iOS/SwiftUIExample/ProgressWaveformView.swift) examples are provided.
-
-Both approaches will result in something like the image below. 
-
-<div align="center">
-  <img src="./Promotion/progress-example.png" height="200" alt="playback progress waveform">
-</div>
-
-
-There is currently no plan to integrate this as a 1st class citizen to the library itself, as every app will have different design requirements, and `WaveformImageDrawer` as well as `WaveformAnalyzer` are as simple to use as the views themselves as you can see in the examples.
-
-### Loading remote audio files from URL
-
-For one example way to display waveforms for audio files on remote URLs see https://github.com/dmrschmidt/DSWaveformImage/issues/22.
-
-What it looks like
-------------------
-
-Waveforms can be rendered in 2 different ways and 5 different styles each.
-
-By default [`LinearWaveformRenderer`](https://github.com/dmrschmidt/DSWaveformImage/blob/main/Sources/DSWaveformImage/Renderers/LinearWaveformRenderer.swift) is used, which draws a linear 2D amplitude envelope.
-
-[`CircularWaveformRenderer`](https://github.com/dmrschmidt/DSWaveformImage/blob/main/Sources/DSWaveformImage/Renderers/CircularWaveformRenderer.swift) is available as an alternative, which can be passed in to the `WaveformView` or `WaveformLiveView` respectively. It draws a circular
-2D amplitude envelope.
-
-You can implement your own renderer by implementing [`WaveformRenderer`](https://github.com/dmrschmidt/DSWaveformImage/blob/main/Sources/DSWaveformImage/Renderers/WaveformRenderer.swift).
- 
-The following styles can be applied to either renderer:
- - **filled**: Use solid color for the waveform.
- - **outlined**: Draws the envelope as an outline with the provided thickness.
- - **gradient**: Use gradient based on color for the waveform.
- - **gradientOutlined**: Use gradient based on color for the waveform. Draws the envelope as an outline with the provided thickness.
- - **striped**: Use striped filling based on color for the waveform.
-
-<div align="center">
-  <img src="./Promotion/screenshot.png" width="500" alt="Screenshot">
-</div>
-
-
-### Live waveform rendering
-https://user-images.githubusercontent.com/69365/127739821-061a4345-0adc-4cc1-bfd6-f7cfbe1268c9.mov
-
-
-Migration
----------
-### In 14.0.0
-* Minimum iOS Deployment target is 15.0, macOS is 12.0 to remove internal usage of deprecated APIs
-* `WaveformAnalyzer` and `WaveformImageDrawer` now return `Result<[Float] | DSImage, Error>` when used with completionHandler for better error handling
-* `WaveformAnalyzer` is now stateless and requires the URL in `.samples(fromAudioAt:count:qos:)` instead of its constructor
-* SwiftUI's `WaveformView` has a new constructor that provides optional access to the underlying `WaveformShape`, which is now used for rendering, see [#78](https://github.com/dmrschmidt/DSWaveformImage/issues/78)
-
-### In 13.0.0
-* Any mentions of `dampening` & similar were corrected to `damping` etc in [11460b8b](https://github.com/dmrschmidt/DSWaveformImage/commit/11460b8b8203f163868ba774d1533116d2fe68a1). Most notably in `Waveform.Configuration`. See [#64](https://github.com/dmrschmidt/DSWaveformImage/issues/64). 
-* styles `.outlined` & `.gradientOutlined` were added to `Waveform.Style`, see https://github.com/dmrschmidt/DSWaveformImage#what-it-looks-like
-* `Waveform.Position` was removed. If you were using it to place the view somewhere, move this responsibility up to its parent for positioning, like with any other view as well.
-
-### In 12.0.0
-* The rendering pipeline was split out from the analysis. You can now create your own renderes by subclassing [`WaveformRenderer`](https://github.com/dmrschmidt/DSWaveformImage/blob/main/Sources/DSWaveformImage/Renderers/WaveformRenderer.swift).
-* A new [`CircularWaveformRenderer`](https://github.com/dmrschmidt/DSWaveformImage/blob/main/Sources/DSWaveformImage/Renderers/CircularWaveformRenderer.swift) has been added.
-* `position` was removed from `Waveform.Configuration`, see [0447737](https://github.com/dmrschmidt/DSWaveformImage/commit/044773782092becec0424527f6feef061988db7a).
-* new `Waveform.Style` option have been added and need to be accounted for in `switch` statements etc.
-
-### In 11.0.0 
-the library was split into two: `DSWaveformImage` and `DSWaveformImageViews`. If you've used any of the native views bevore, just add the additional `import DSWaveformImageViews`.
-The SwiftUI views have changed from taking a Binding to the respective plain values instead.
-
-### In 9.0.0 
-a few public API's have been slightly changed to be more concise. All types have also been grouped under the `Waveform` enum-namespace. Meaning `WaveformConfiguration` for instance has become `Waveform.Configuration` and so on.
-
-### In 7.0.0 
-colors have moved into associated values on the respective `style` enum.
-
-`Waveform` and the `UIImage` category have been removed in 6.0.0 to simplify the API.
-See `Usage` for current usage.
-
 ## See it live in action
 
-[SoundCard - postcards with sound](https://www.soundcard.io) lets you send real, physical postcards with audio messages. Right from your iOS device.
+[SoundCard — postcards with sound](https://www.soundcard.io) lets you send real, physical postcards with audio messages. Right from your iOS device.
 
-DSWaveformImage is used to draw the waveforms of the audio messages that get printed on the postcards sent by [SoundCard - postcards with audio](https://www.soundcard.io).
+DSWaveformImage is used to draw the waveforms of the audio messages that get printed on the postcards sent by [SoundCard — postcards with audio](https://www.soundcard.io).
 
 &nbsp;
 
 <div align="center">
     <a href="http://bit.ly/soundcardio">
         <img src="./Promotion/appstore.svg" alt="Download SoundCard">
-        
+
 Download SoundCard on the App Store.
     </a>
 </div>
@@ -316,3 +309,21 @@ Download SoundCard on the App Store.
 <a href="http://bit.ly/soundcardio">
 <img src="https://www.soundcard.io/images/opengraph-preview.jpg" alt="Screenshot">
 </a>
+
+---
+
+## Regenerating screenshots
+
+The README images live in [`Promotion/readme/`](Promotion/readme) and are produced by the `WaveformScreenshots` SPM executable target:
+
+```bash
+swift run WaveformScreenshots
+```
+
+The iOS-simulator shots (`live-recording.png`, `progress.png`) come from the example app — build, install, launch with `-tab 2` or `-tab 3`, and crop with ImageMagick:
+
+```bash
+xcrun simctl launch <udid> de.dmrschmidt.DSWaveformImageExample-iOS -tab 2
+xcrun simctl io <udid> screenshot raw.png
+magick raw.png -crop 1206x2343+0+177 +repage live-recording.png
+```

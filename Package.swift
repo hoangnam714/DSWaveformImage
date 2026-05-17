@@ -17,6 +17,9 @@ let package = Package(
         .library(
             name: "DSWaveformImageViews",
             targets: ["DSWaveformImageViews"]),
+        .executable(
+            name: "WaveformScreenshots",
+            targets: ["WaveformScreenshots"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -27,6 +30,12 @@ let package = Package(
         .target(
             name: "DSWaveformImageViews",
             dependencies: ["DSWaveformImage"]
+        ),
+        .executableTarget(
+            name: "WaveformScreenshots",
+            dependencies: ["DSWaveformImage"],
+            path: "Promotion/Generator",
+            resources: [.copy("example_stereo.m4a")]
         ),
         .testTarget(
             name: "DSWaveformImageTests",
