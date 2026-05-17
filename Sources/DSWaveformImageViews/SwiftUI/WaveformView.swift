@@ -60,7 +60,21 @@ public struct WaveformView<Content: View>: View {
                 .modifier(OnChange(of: geometry.size, action: { newValue in update(size: newValue, url: audioURL, configuration: configuration, delayed: true) }))
                 .modifier(OnChange(of: audioURL, action: { newValue in update(size: geometry.size, url: audioURL, configuration: configuration) }))
                 .modifier(OnChange(of: configuration, action: { newValue in update(size: geometry.size, url: audioURL, configuration: newValue) }))
+                // Renderer is non-Equatable so we can't watch it directly, but the only renderer property that
+                // changes what the analyzer must produce is the channel selection. Re-fetch when it changes —
+                // otherwise switching to/from `.stereo` reuses samples whose layout the new renderer mis-reads.
+                // Clear samples first so the brief window before the async re-fetch lands renders empty,
+                // not as a stretched/clipped path built from the previous layout's sample count.
+                .modifier(OnChange(of: rendererChannelSelection, action: { _ in
+                    samples = []
+                    spectralCentroids = []
+                    update(size: geometry.size, url: audioURL, configuration: configuration)
+                }))
         }
+    }
+
+    private var rendererChannelSelection: Waveform.ChannelSelection {
+        (renderer as? ChannelAwareWaveformRenderer)?.channelSelection ?? .merged
     }
 
     @ViewBuilder

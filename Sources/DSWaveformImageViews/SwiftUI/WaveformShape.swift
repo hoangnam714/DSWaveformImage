@@ -34,7 +34,8 @@ public struct WaveformShape: Shape {
         }
 
         let size = CGSize(width: rect.maxX, height: rect.maxY)
-        let dampedSamples = configuration.shouldDamp ? damp(samples, with: configuration) : samples
+        let isStereo = (renderer as? ChannelAwareWaveformRenderer)?.channelSelection == .stereo
+        let dampedSamples = configuration.shouldDamp ? damp(samples, with: configuration, isStereo: isStereo) : samples
         let path = renderer.path(samples: dampedSamples, with: configuration.with(size: size), lastOffset: 0)
 
         return Path(path)
@@ -55,9 +56,19 @@ public struct WaveformShape: Shape {
 }
 
 private extension WaveformShape {
-    private func damp(_ samples: [Float], with configuration: Waveform.Configuration) -> [Float] {
+    /// Apply damping to each channel half independently in `.stereo` mode. Samples come in laid out as
+    /// `[allLeft..., allRight...]`, so damping over the concatenated array would only fade the start of L
+    /// and the end of R — the middle of the array (end of L + start of R) would get no damping at all.
+    private func damp(_ samples: [Float], with configuration: Waveform.Configuration, isStereo: Bool) -> [Float] {
         guard let damping = configuration.damping, damping.percentage > 0 else {
             return samples
+        }
+
+        if isStereo, samples.count % 2 == 0 {
+            let half = samples.count / 2
+            let left = damp(Array(samples[0..<half]), with: configuration, isStereo: false)
+            let right = damp(Array(samples[half..<samples.count]), with: configuration, isStereo: false)
+            return left + right
         }
 
         let count = Float(samples.count)

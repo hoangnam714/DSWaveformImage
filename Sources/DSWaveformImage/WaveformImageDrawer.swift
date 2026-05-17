@@ -89,12 +89,17 @@ extension WaveformImageDrawer {
             }
         }
 
+        let isStereo = (renderer as? ChannelAwareWaveformRenderer)?.channelSelection == .stereo
+        // Stereo samples are laid out as `[allLeft..., allRight...]`, so the visible window covers
+        // `2 * samplesNeeded` total entries (half per channel). Anything else and the renderer halves a
+        // mismatched array and offsets it to the right edge.
+        let windowedSampleCount = isStereo ? samplesNeeded * 2 : samplesNeeded
         // move the window, so that its always at the end (appears to move from right to left)
-        let startSample = max(0, samples.count - samplesNeeded)
+        let startSample = max(0, samples.count - windowedSampleCount)
         let clippedSamples = Array(samples[startSample..<samples.count])
-        let dampedSamples = configuration.shouldDamp ? damp(clippedSamples, with: configuration) : clippedSamples
-        let paddedSamples = shouldDrawSilencePadding ? Array(repeating: 1, count: samplesNeeded - clippedSamples.count) + dampedSamples : dampedSamples
-        
+        let dampedSamples = configuration.shouldDamp ? damp(clippedSamples, with: configuration, isStereo: isStereo) : clippedSamples
+        let paddedSamples = shouldDrawSilencePadding ? Array(repeating: 1, count: windowedSampleCount - clippedSamples.count) + dampedSamples : dampedSamples
+
         draw(on: context, from: paddedSamples, with: configuration, renderer: renderer, position: position)
     }
 
@@ -109,8 +114,22 @@ extension WaveformImageDrawer {
 
     /// Damp the samples for a smoother animation.
     func damp(_ samples: [Float], with configuration: Waveform.Configuration) -> [Float] {
+        damp(samples, with: configuration, isStereo: false)
+    }
+
+    /// Damp the samples for a smoother animation. In `.stereo` mode samples are laid out as
+    /// `[allLeft..., allRight...]`, so damping over the concatenated array would only fade the start of
+    /// L and the end of R. Split and damp each channel half independently.
+    func damp(_ samples: [Float], with configuration: Waveform.Configuration, isStereo: Bool) -> [Float] {
         guard let damping = configuration.damping, damping.percentage > 0 else {
             return samples
+        }
+
+        if isStereo, samples.count % 2 == 0 {
+            let half = samples.count / 2
+            let left = damp(Array(samples[0..<half]), with: configuration, isStereo: false)
+            let right = damp(Array(samples[half..<samples.count]), with: configuration, isStereo: false)
+            return left + right
         }
 
         let count = Float(samples.count)
@@ -153,7 +172,7 @@ private extension WaveformImageDrawer {
             samples = try await waveformAnalyzer.samples(fromAudioAt: audioAssetURL, count: sampleCount, channelSelection: channelSelection, qos: qos)
             effectiveRenderer = renderer
         }
-        let dampedSamples = configuration.shouldDamp ? self.damp(samples, with: configuration) : samples
+        let dampedSamples = configuration.shouldDamp ? self.damp(samples, with: configuration, isStereo: channelSelection == .stereo) : samples
 
         if let image = waveformImage(from: dampedSamples, with: configuration, renderer: effectiveRenderer, position: position) {
             return image
