@@ -22,6 +22,10 @@ public protocol AudioRecording: ObservableObject {
 @available(iOS 15.0, macOS 12.0, *)
 public struct LiveRecordingShowcase<Recorder: AudioRecording>: View {
     @ObservedObject private var recorder: Recorder
+    // Owned at showcase scope so every live canvas in this view sees the same flag — the toggle
+    // lives in the circular preview card but applies to all three canvases (circular, timeline,
+    // compact indicator).
+    @State private var padSilence: Bool = true
 
     public init(recorder: Recorder) {
         self.recorder = recorder
@@ -33,9 +37,9 @@ public struct LiveRecordingShowcase<Recorder: AudioRecording>: View {
                 title: "Live Recording",
                 subtitle: "Stream microphone amplitude into WaveformLiveCanvas — change renderer, style, and damping live."
             )
-            CircularPreviewSection(recorder: recorder)
-            TimelineSection(recorder: recorder)
-            ControlsAndIndicatorSection(recorder: recorder)
+            ControlsAndIndicatorSection(recorder: recorder, padSilence: $padSilence)
+            CircularPreviewSection(recorder: recorder, padSilence: padSilence)
+            TimelineSection(recorder: recorder, padSilence: padSilence)
         }
     }
 }
@@ -45,7 +49,7 @@ public struct LiveRecordingShowcase<Recorder: AudioRecording>: View {
 @available(iOS 15.0, macOS 12.0, *)
 private struct CircularPreviewSection<Recorder: AudioRecording>: View {
     @ObservedObject var recorder: Recorder
-    @State private var padSilence: Bool = true
+    let padSilence: Bool
 
     var body: some View {
         GallerySection(
@@ -54,19 +58,13 @@ private struct CircularPreviewSection<Recorder: AudioRecording>: View {
             subtitle: "WaveformLiveCanvas drives CircularWaveformRenderer with the latest sample buffer."
         ) {
             WaveformCard(caption: "WaveformLiveCanvas(samples: …, renderer: CircularWaveformRenderer(kind: .circle))") {
-                VStack(spacing: 14) {
-                    WaveformLiveCanvas(
-                        samples: recorder.samples,
-                        configuration: .init(style: .striped(.init(color: .systemIndigo, width: 3, spacing: 3))),
-                        renderer: CircularWaveformRenderer(kind: .circle),
-                        shouldDrawSilencePadding: padSilence
-                    )
-                    .frame(height: 240)
-
-                    Toggle("Pad silence", isOn: $padSilence)
-                        .toggleStyle(.switch)
-                        .font(.subheadline)
-                }
+                WaveformLiveCanvas(
+                    samples: recorder.samples,
+                    configuration: .init(style: .striped(.init(color: .systemIndigo, width: 3, spacing: 3))),
+                    renderer: CircularWaveformRenderer(kind: .circle),
+                    shouldDrawSilencePadding: padSilence
+                )
+                .frame(height: 240)
             }
         }
     }
@@ -75,6 +73,7 @@ private struct CircularPreviewSection<Recorder: AudioRecording>: View {
 @available(iOS 15.0, macOS 12.0, *)
 private struct TimelineSection<Recorder: AudioRecording>: View {
     @ObservedObject var recorder: Recorder
+    let padSilence: Bool
 
     private enum StyleChoice: String, CaseIterable, Identifiable {
         case filled = "Filled"
@@ -104,8 +103,12 @@ private struct TimelineSection<Recorder: AudioRecording>: View {
         ) {
             WaveformCard {
                 VStack(spacing: 14) {
-                    WaveformLiveCanvas(samples: recorder.samples, configuration: configuration)
-                        .frame(height: 160)
+                    WaveformLiveCanvas(
+                        samples: recorder.samples,
+                        configuration: configuration,
+                        shouldDrawSilencePadding: padSilence
+                    )
+                    .frame(height: 160)
 
                     Picker("Style", selection: $style) {
                         ForEach(StyleChoice.allCases) { Text($0.rawValue).tag($0) }
@@ -121,6 +124,7 @@ private struct TimelineSection<Recorder: AudioRecording>: View {
 @available(iOS 15.0, macOS 12.0, *)
 private struct ControlsAndIndicatorSection<Recorder: AudioRecording>: View {
     @ObservedObject var recorder: Recorder
+    @Binding var padSilence: Bool
 
     var body: some View {
         GallerySection(
@@ -129,14 +133,21 @@ private struct ControlsAndIndicatorSection<Recorder: AudioRecording>: View {
             subtitle: "A drop-in mic widget — tap the circle to start, drag and embed anywhere."
         ) {
             WaveformCard {
-                CompactRecordingIndicator(
-                    samples: recorder.samples,
-                    duration: recorder.recordingTime,
-                    isRecording: Binding(
-                        get: { recorder.isRecording },
-                        set: { recorder.isRecording = $0 }
+                VStack(spacing: 14) {
+                    CompactRecordingIndicator(
+                        samples: recorder.samples,
+                        duration: recorder.recordingTime,
+                        shouldDrawSilence: padSilence,
+                        isRecording: Binding(
+                            get: { recorder.isRecording },
+                            set: { recorder.isRecording = $0 }
+                        )
                     )
-                )
+
+                    Toggle("Pad silence (applies to every live canvas)", isOn: $padSilence)
+                        .toggleStyle(.switch)
+                        .font(.subheadline)
+                }
             }
         }
     }
@@ -148,6 +159,7 @@ private struct ControlsAndIndicatorSection<Recorder: AudioRecording>: View {
 private struct CompactRecordingIndicator: View {
     let samples: [Float]
     let duration: TimeInterval
+    let shouldDrawSilence: Bool
     @Binding var isRecording: Bool
 
     private static let timeFormatter: DateComponentsFormatter = {
@@ -164,8 +176,12 @@ private struct CompactRecordingIndicator: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            WaveformLiveCanvas(samples: samples, configuration: Self.configuration)
-                .padding(.vertical, 2)
+            WaveformLiveCanvas(
+                samples: samples,
+                configuration: Self.configuration,
+                shouldDrawSilencePadding: shouldDrawSilence
+            )
+            .padding(.vertical, 2)
 
             Text(Self.timeFormatter.string(from: duration) ?? "00:00")
                 .font(.subheadline)
