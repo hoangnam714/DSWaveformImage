@@ -13,14 +13,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-        guard let windowScene = scene as? UIWindowScene else { return }
+        guard let _ = (scene as? UIWindowScene) else { return }
         // Honor `-tab N` launch arg so screenshot scripts (and manual debugging) can land on a
         // specific tab without tapping through the chrome. Index is 0-based.
-        let args = ProcessInfo.processInfo.arguments
-        if let idx = args.firstIndex(of: "-tab"),
-           idx + 1 < args.count,
-           let tab = Int(args[idx + 1]),
-           let tabController = windowScene.windows.first?.rootViewController as? UITabBarController {
+        // Defer until the next run-loop turn so the storyboard-created window is in `self.window`.
+        DispatchQueue.main.async { [weak self] in
+            let args = ProcessInfo.processInfo.arguments
+            guard let idx = args.firstIndex(of: "-tab"),
+                  idx + 1 < args.count,
+                  let tab = Int(args[idx + 1]),
+                  let tabController = self?.window?.rootViewController as? UITabBarController,
+                  tab >= 0, tab < (tabController.viewControllers?.count ?? 0) else { return }
             tabController.selectedIndex = tab
         }
     }

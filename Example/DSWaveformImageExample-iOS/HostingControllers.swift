@@ -21,3 +21,10 @@ final class ProgressHostingController: UIHostingController<ProgressShowcase> {
         super.init(coder: aDecoder, rootView: ProgressShowcase())
     }
 }
+
+/// Hosts the shared SwiftUI zoom & scroll showcase.
+final class ZoomScrollHostingController: UIHostingController<ZoomScrollShowcase> {
+    @MainActor @objc required dynamic init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder, rootView: ZoomScrollShowcase())
+    }
+}

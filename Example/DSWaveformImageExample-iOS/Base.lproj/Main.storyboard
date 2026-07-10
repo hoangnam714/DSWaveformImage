@@ -68,6 +68,21 @@
             </objects>
             <point key="canvasLocation" x="1136" y="-667"/>
         </scene>
+        <!--Zoom-->
+        <scene sceneID="zOm-Sc-Rl1">
+            <objects>
+                <viewController id="zOm-HC-001" customClass="ZoomScrollHostingController" customModule="DSWaveformImageExample_iOS" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="zOm-Vw-001">
+                        <rect key="frame" x="0.0" y="0.0" width="320" height="568"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                    </view>
+                    <tabBarItem key="tabBarItem" title="Zoom" image="plus.magnifyingglass" catalog="system" id="zOm-Tb-001"/>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="zOm-FR-001" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="1136" y="-1400"/>
+        </scene>
         <!--Playback-->
         <scene sceneID="yEP-GJ-OjA">
             <objects>
@@ -83,6 +98,7 @@
                         <segue destination="BYZ-38-t0r" kind="relationship" relationship="viewControllers" id="m9o-Xe-wz1"/>
                         <segue destination="ogB-yT-rId" kind="relationship" relationship="viewControllers" id="k0A-Dy-j1K"/>
                         <segue destination="gD8-aq-VgA" kind="relationship" relationship="viewControllers" id="8fS-uD-36g"/>
+                        <segue destination="zOm-HC-001" kind="relationship" relationship="viewControllers" id="zOm-Sg-001"/>
                     </connections>
                 </tabBarController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="8qD-za-aZv" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
@@ -92,6 +108,7 @@
     </scenes>
     <resources>
         <image name="play.circle.fill" catalog="system" width="128" height="123"/>
+        <image name="plus.magnifyingglass" catalog="system" width="128" height="117"/>
         <image name="record.circle" catalog="system" width="128" height="123"/>
         <image name="rectangle.3.group" catalog="system" width="128" height="83"/>
         <image name="waveform" catalog="system" width="128" height="80"/>

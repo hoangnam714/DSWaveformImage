@@ -161,5 +161,6 @@ struct GalleryScrollView<Content: View>: View {
             .padding(.vertical, 16)
         }
         .background(WaveformGalleryStyle.backgroundFill.ignoresSafeArea())
+        .disablesScrollDuringWaveformInteraction()
     }
 }

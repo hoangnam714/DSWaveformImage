@@ -11,11 +11,78 @@ public struct ProgressShowcase: View {
         GalleryScrollView {
             GalleryHero(
                 title: "Progress",
-                subtitle: "Visualize playback position by drawing the waveform once and overlaying a progress-clipped tint on top."
+                subtitle: "Scrub playback, zoom into the waveform, and try style variants — scroll this page for each demo."
             )
+            ZoomScrollSection()
             InteractiveScrubSection()
             AutoplaySection()
             StyleVariantsSection()
+        }
+    }
+}
+
+// MARK: - Zoom & scroll
+
+@available(iOS 15.0, macOS 12.0, *)
+private struct ZoomScrollSection: View {
+    private let url = SampleAudio.stereoDemo
+    @State private var zoom: CGFloat = 1
+    @State private var visibleRange: Waveform.VisibleRange = .full
+
+    var body: some View {
+        GallerySection(
+            "Zoom & scroll",
+            systemImage: "plus.magnifyingglass",
+            subtitle: "Pinch to zoom into the waveform, then drag horizontally to pan. Double-tap resets to the full file; the slider mirrors the same bindings."
+        ) {
+            WaveformCard(caption: "{ shape in shape.stroke(…) } — striped + stroke override") {
+                VStack(spacing: 14) {
+                    InteractiveWaveformView(
+                        audioURL: url,
+                        zoom: $zoom,
+                        visibleRange: $visibleRange,
+                        configuration: .init(
+                            style: .striped(.init(color: .systemIndigo, width: 3, spacing: 3)),
+                            damping: nil
+                        ),
+                        maximumZoom: 8
+                    ) { shape in
+                        shape.stroke(
+                            LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .leading, endPoint: .trailing),
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                        )
+                    }
+                    .frame(height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            zoom = 1
+                            visibleRange = .full
+                        }
+                    }
+
+                    HStack {
+                        Label(String(format: "%.1f×", zoom), systemImage: "plus.magnifyingglass")
+                        Spacer()
+                        Text(String(format: "%.0f%% – %.0f%%", visibleRange.lowerBound * 100, visibleRange.upperBound * 100))
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.subheadline)
+
+                    Slider(
+                        value: Binding(
+                            get: { zoom },
+                            set: { newZoom in
+                                zoom = newZoom
+                                visibleRange = .from(zoom: Double(newZoom), start: visibleRange.lowerBound)
+                            }
+                        ),
+                        in: 1...8
+                    )
+                }
+            }
         }
     }
 }

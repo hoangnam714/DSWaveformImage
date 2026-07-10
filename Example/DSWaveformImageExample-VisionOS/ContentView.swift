@@ -10,6 +10,9 @@ struct ContentView: View {
 
             ProgressShowcase()
                 .tabItem { Label("Progress", systemImage: "play.circle.fill") }
+
+            ZoomScrollShowcase()
+                .tabItem { Label("Zoom", systemImage: "plus.magnifyingglass") }
         }
     }
 }

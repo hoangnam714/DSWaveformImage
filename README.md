@@ -8,7 +8,7 @@ Native audio waveform rendering for **iOS**, **iPadOS**, **macOS**, **visionOS**
 
 Three layers, pick whichever fits:
 
-- **SwiftUI views** — [`WaveformView`](Sources/DSWaveformImageViews/SwiftUI/WaveformView.swift), [`WaveformLiveCanvas`](Sources/DSWaveformImageViews/SwiftUI/WaveformLiveCanvas.swift), [`WaveformShape`](Sources/DSWaveformImageViews/SwiftUI/WaveformShape.swift)
+- **SwiftUI views** — [`WaveformView`](Sources/DSWaveformImageViews/SwiftUI/WaveformView.swift), [`InteractiveWaveformView`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformView.swift), [`InteractiveWaveformTimeline`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformTimeline.swift), [`WaveformLiveCanvas`](Sources/DSWaveformImageViews/SwiftUI/WaveformLiveCanvas.swift), [`WaveformShape`](Sources/DSWaveformImageViews/SwiftUI/WaveformShape.swift)
 - **UIKit views** — [`WaveformImageView`](Sources/DSWaveformImageViews/UIKit/WaveformImageView.swift), [`WaveformLiveView`](Sources/DSWaveformImageViews/UIKit/WaveformLiveView.swift)
 - **Raw API** — [`WaveformImageDrawer`](Sources/DSWaveformImage/WaveformImageDrawer.swift) renders to `UIImage` / `NSImage`; [`WaveformAnalyzer`](Sources/DSWaveformImage/WaveformAnalyzer.swift) gives you the normalized `[Float]` samples to do your own thing with.
 
@@ -216,6 +216,42 @@ GeometryReader { geometry in
 
 The same idea works with two image views and a `CAShapeLayer` mask in UIKit — see [`UIKitShowcaseViewController.swift`](Example/DSWaveformImageExample-iOS/UIKitShowcaseViewController.swift). There's no built-in `ProgressWaveformView`; every app's playback model is different and the masking trick is small enough that wrapping it would just be in your way.
 
+## Zoom & scroll
+
+[`InteractiveWaveformView`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformView.swift) adds pinch-to-zoom and drag-to-pan on top of a high-resolution sample cache. Bind `zoom` and `visibleRange` when you need to sync with a playhead or external controls; use [`InteractiveWaveform`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformView.swift) when you just want the gestures.
+
+```swift
+@State private var zoom: CGFloat = 1
+@State private var visibleRange: Waveform.VisibleRange = .full
+
+InteractiveWaveformView(
+    audioURL: url,
+    zoom: $zoom,
+    visibleRange: $visibleRange,
+    maximumZoom: 8
+)
+.frame(height: 120)
+```
+
+Under the hood, analysis runs once at `viewportWidth × scale × maximumZoom`, then [`WaveformSampleViewport`](Sources/DSWaveformImage/WaveformSampleViewport.swift) slices and peak-resamples the visible window for each frame — so gestures stay smooth without re-decoding audio. See `ZoomScrollShowcase` in the example app.
+
+For an editor-style strip with a **zoom-scaled time ruler** and a **draggable playhead**, use [`InteractiveWaveformTimeline`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformTimeline.swift):
+
+```swift
+@State private var zoom: CGFloat = 2
+@State private var visibleRange: Waveform.VisibleRange = .from(zoom: 2, start: 0.1)
+@State private var progress: Double = 0.35
+
+InteractiveWaveformTimeline(
+    audioURL: url,
+    zoom: $zoom,
+    visibleRange: $visibleRange,
+    progress: $progress
+)
+```
+
+Ruler tick intervals come from [`Waveform.Timeline`](Sources/DSWaveformImage/WaveformTimeline.swift) and tighten automatically as you zoom in.
+
 ## Loading remote audio
 
 `WaveformAnalyzer` and `WaveformImageDrawer` work with local file URLs. For a remote-audio recipe see [#22](https://github.com/dmrschmidt/DSWaveformImage/issues/22).
@@ -224,6 +260,7 @@ The same idea works with two image views and a `CAShapeLayer` mask in UIKit — 
 
 ### In 15.0.0 (upcoming)
 
+- **New `InteractiveWaveformView` / `InteractiveWaveform`** — pinch-to-zoom and drag-to-pan SwiftUI views, plus `Waveform.VisibleRange` and `WaveformSampleViewport` helpers for custom zoom UIs.
 - **`Waveform.Style.spectralTint(low:high:)` is a new case.** Exhaustive `switch` statements over `Waveform.Style` will need to add it (or an `@unknown default`).
 - **`Position.middle` waveforms render smaller at `verticalScalingFactor=1`.** The previous math overshot, letting peak-loud samples extend a full canvas height in each direction from the centerline. They now fill exactly the budget the centerline leaves available (half-canvas per direction for `.middle`, full canvas for `.top` / `.bottom`). Bump `verticalScalingFactor` if you want the old visual size.
 - **Stereo + damping** now damps each channel half independently. Previously the damping ran across the concatenated `[allLeft..., allRight...]` array, so only the start of L and the end of R faded; the middle (end of L + start of R) got no damping at all.
