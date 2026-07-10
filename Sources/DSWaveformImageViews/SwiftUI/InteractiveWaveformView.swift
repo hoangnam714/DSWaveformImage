@@ -4,9 +4,11 @@ import SwiftUI
 @available(iOS 15.0, macOS 12.0, *)
 /// An interactive waveform that supports pinch-to-zoom and drag-to-scroll over a high-resolution sample cache.
 ///
-/// Analyzes the audio once at `viewportWidth × scale × maximumZoom` resolution, then maps the visible
-/// window onto the viewport via `WaveformSampleViewport`. Circular renderers are not supported —
-/// zoom/scroll is a linear-envelope interaction.
+/// Analyzes the audio once at `viewportWidth × scale × maximumZoom` resolution. At a given zoom the
+/// full file is resampled into a **wide** layer (`viewportWidth × zoom`); panning only translates that
+/// layer — it does **not** re-slice peaks every frame, which avoids the shimmer/flicker of
+/// bucket-shifting envelopes. Circular renderers are not supported — zoom/scroll is a linear-envelope
+/// interaction.
 public struct InteractiveWaveformView<Content: View>: View {
     private let audioURL: URL
     private let configuration: Waveform.Configuration
@@ -23,6 +25,10 @@ public struct InteractiveWaveformView<Content: View>: View {
 
     @State private var samples: [Float] = []
     @State private var spectralCentroids: [Float] = []
+    /// Full-file samples resampled for the current zoom / viewport width. Stable while panning.
+    @State private var displaySamples: [Float] = []
+    @State private var displayCentroids: [Float] = []
+    @State private var displayContentWidth: CGFloat = 0
     @State private var viewportSize: CGSize = .zero
     @State private var analysisTask: Task<Void, Never>?
 
@@ -75,14 +81,30 @@ public struct InteractiveWaveformView<Content: View>: View {
     public var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
-            ZStack {
+            let contentWidth = zoomedContentWidth(for: size.width)
+            let offsetX = panOffset(contentWidth: contentWidth)
+
+            ZStack(alignment: .leading) {
                 if case .spectralTint = configuration.style {
-                    spectralCanvas(size: size)
+                    spectralCanvas(contentWidth: contentWidth, height: size.height)
+                        .offset(x: offsetX)
                 } else {
-                    content(WaveformShape(samples: visibleSamples(for: size), configuration: configuration, renderer: renderer))
+                    content(WaveformShape(
+                        samples: displaySamples,
+                        configuration: configuration,
+                        renderer: renderer
+                    ))
+                    .frame(width: contentWidth, height: size.height)
+                    // Rasterize once per zoom; pan only moves the texture (no path rebuild / shimmer).
+                    .drawingGroup(opaque: false)
+                    .offset(x: offsetX)
                 }
             }
+            .frame(width: size.width, height: size.height, alignment: .leading)
+            .clipped()
             .contentShape(Rectangle())
+            // Pan updates must not implicitly animate sample/path morphs.
+            .transaction { $0.animation = nil }
             .modifier(PanGestureModifier(
                 enabled: allowsScrolling && zoomedIn,
                 gesture: dragGesture(viewportWidth: size.width)
@@ -91,27 +113,38 @@ public struct InteractiveWaveformView<Content: View>: View {
             .onAppear {
                 viewportSize = size
                 reloadSamplesIfNeeded(for: size)
+                rebuildDisplaySamples(for: size)
             }
             .modifier(OnChange(of: size, action: { newValue in
                 viewportSize = newValue
                 reloadSamplesIfNeeded(for: newValue)
+                rebuildDisplaySamples(for: newValue)
             }))
             .modifier(OnChange(of: audioURL, action: { _ in
                 samples = []
                 spectralCentroids = []
+                displaySamples = []
+                displayCentroids = []
                 reloadSamplesIfNeeded(for: size, force: true)
             }))
             .modifier(OnChange(of: configuration, action: { _ in
                 reloadSamplesIfNeeded(for: size, force: true)
+                rebuildDisplaySamples(for: size)
             }))
             .modifier(OnChange(of: rendererChannelSelection, action: { _ in
                 samples = []
                 spectralCentroids = []
+                displaySamples = []
+                displayCentroids = []
                 reloadSamplesIfNeeded(for: size, force: true)
             }))
             .modifier(OnChange(of: zoom, action: { newZoom in
+                rebuildDisplaySamples(for: size)
                 guard !isPinching else { return }
                 syncRange(to: newZoom, anchor: nil)
+            }))
+            .modifier(OnChange(of: samples.count, action: { _ in
+                rebuildDisplaySamples(for: size)
             }))
         }
         .preference(key: WaveformInteractionKey.self, value: isPanning || isPinching)
@@ -121,7 +154,7 @@ public struct InteractiveWaveformView<Content: View>: View {
         zoom > minimumZoom + 0.001
     }
 
-    // MARK: - Visible samples
+    // MARK: - Zoomed layer (stable while panning)
 
     private var isStereo: Bool {
         (renderer as? ChannelAwareWaveformRenderer)?.channelSelection == .stereo
@@ -131,35 +164,62 @@ public struct InteractiveWaveformView<Content: View>: View {
         (renderer as? ChannelAwareWaveformRenderer)?.channelSelection ?? .merged
     }
 
-    private func visibleSamples(for size: CGSize) -> [Float] {
-        guard !samples.isEmpty, size.width > 0 else { return [] }
-        let targetCount = max(1, Int(size.width * configuration.scale))
-        return WaveformSampleViewport.samples(
-            from: samples,
-            visibleIn: visibleRange,
-            targetCount: targetCount,
-            isStereo: isStereo
-        )
+    private func zoomedContentWidth(for viewportWidth: CGFloat) -> CGFloat {
+        guard viewportWidth > 0 else { return 0 }
+        // Prefer the last rebuilt width when it matches current zoom so the offset stays
+        // consistent with the rasterized layer even mid-frame.
+        if displayContentWidth > 0 {
+            let expected = viewportWidth * max(zoom, minimumZoom)
+            if abs(displayContentWidth - expected) < 0.5 {
+                return displayContentWidth
+            }
+        }
+        return viewportWidth * max(zoom, minimumZoom)
     }
 
-    private func visibleCentroids(for size: CGSize) -> [Float] {
-        guard !spectralCentroids.isEmpty, size.width > 0 else { return [] }
-        let targetCount = max(1, Int(size.width * configuration.scale))
-        return WaveformSampleViewport.samples(
-            from: spectralCentroids,
-            visibleIn: visibleRange,
-            targetCount: targetCount,
+    private func panOffset(contentWidth: CGFloat) -> CGFloat {
+        guard contentWidth > 0 else { return 0 }
+        let raw = -CGFloat(visibleRange.lowerBound) * contentWidth
+        // Snap to device pixels so stripes stay crisp while dragging.
+        let scale = max(configuration.scale, 1)
+        return (raw * scale).rounded() / scale
+    }
+
+    private func rebuildDisplaySamples(for size: CGSize) {
+        guard !samples.isEmpty, size.width > 0 else {
+            displaySamples = []
+            displayCentroids = []
+            displayContentWidth = 0
+            return
+        }
+
+        let contentWidth = size.width * max(zoom, minimumZoom)
+        let targetCount = max(1, Int(contentWidth * configuration.scale))
+        displayContentWidth = contentWidth
+        displaySamples = WaveformSampleViewport.resample(
+            samples,
+            to: targetCount,
             isStereo: isStereo
         )
+
+        if case .spectralTint = configuration.style, !spectralCentroids.isEmpty {
+            displayCentroids = WaveformSampleViewport.resample(
+                spectralCentroids,
+                to: targetCount,
+                isStereo: isStereo
+            )
+        } else {
+            displayCentroids = []
+        }
     }
 
     @ViewBuilder
-    private func spectralCanvas(size: CGSize) -> some View {
-        let amplitudes = visibleSamples(for: size)
-        let centroids = visibleCentroids(for: size)
+    private func spectralCanvas(contentWidth: CGFloat, height: CGFloat) -> some View {
+        let amplitudes = displaySamples
+        let centroids = displayCentroids
         let configuration = self.configuration
         let renderer = self.renderer
-        Canvas(rendersAsynchronously: true) { context, canvasSize in
+        Canvas(rendersAsynchronously: false) { context, canvasSize in
             context.withCGContext { cgContext in
                 let effectiveRenderer = (renderer as? SpectralAwareWaveformRenderer)?.withSpectralCentroids(centroids) ?? renderer
                 WaveformImageDrawer().draw(
@@ -170,6 +230,8 @@ public struct InteractiveWaveformView<Content: View>: View {
                 )
             }
         }
+        .frame(width: contentWidth, height: height)
+        .drawingGroup(opaque: false)
     }
 
     // MARK: - Gestures
@@ -266,6 +328,7 @@ public struct InteractiveWaveformView<Content: View>: View {
                     await MainActor.run {
                         self.samples = analysis.amplitudes
                         self.spectralCentroids = analysis.spectralCentroids
+                        self.rebuildDisplaySamples(for: self.viewportSize)
                     }
                 } else {
                     let analyzed = try await WaveformAnalyzer().samples(
@@ -277,6 +340,7 @@ public struct InteractiveWaveformView<Content: View>: View {
                     await MainActor.run {
                         self.samples = analyzed
                         self.spectralCentroids = []
+                        self.rebuildDisplaySamples(for: self.viewportSize)
                     }
                 }
             } catch {
