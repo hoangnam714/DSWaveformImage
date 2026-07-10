@@ -12,14 +12,26 @@ Three layers, pick whichever fits:
 - **UIKit views** — [`WaveformImageView`](Sources/DSWaveformImageViews/UIKit/WaveformImageView.swift), [`WaveformLiveView`](Sources/DSWaveformImageViews/UIKit/WaveformLiveView.swift)
 - **Raw API** — [`WaveformImageDrawer`](Sources/DSWaveformImage/WaveformImageDrawer.swift) renders to `UIImage` / `NSImage`; [`WaveformAnalyzer`](Sources/DSWaveformImage/WaveformAnalyzer.swift) gives you the normalized `[Float]` samples to do your own thing with.
 
-The `Example/` directory contains a multi-platform showcase ([`WaveformGalleryView`](Example/Shared/WaveformGalleryView.swift)) that exercises every public surface interactively — recommended for poking around with renderers, styles, and configurations together.
+Editor-style interactions are built in too: **pinch-to-zoom**, **drag-to-pan**, a **zoom-aware time ruler**, **playhead scrubbing**, **trim / crop handles**, and a **full-file overview** strip — see [Zoom, timeline & trim](#zoom-timeline--trim).
+
+The `Example/` directory contains a multi-platform showcase ([`WaveformGalleryView`](Example/Shared/WaveformGalleryView.swift)) that exercises every public surface interactively — recommended for poking around with renderers, styles, and configurations together. The **Zoom** tab ([`ZoomScrollShowcase`](Example/Shared/ZoomScrollShowcase.swift)) demos the interactive timeline end-to-end.
 
 ## Installation
 
-Add the package via SPM:
+Add the package via [Swift Package Manager](https://swift.org/package-manager):
 
 ```
-https://github.com/dmrschmidt/DSWaveformImage   (Up to Next Major from 14.0.0)
+https://github.com/hoangnam714/DSWaveformImage
+```
+
+**Xcode:** File → Add Package Dependencies… → paste the URL above → set dependency rule to **Up to Next Major** from `15.0.0`, or select branch `main` for the latest tip.
+
+**`Package.swift`:**
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/hoangnam714/DSWaveformImage.git", from: "15.0.0")
+]
 ```
 
 ```swift
@@ -216,9 +228,13 @@ GeometryReader { geometry in
 
 The same idea works with two image views and a `CAShapeLayer` mask in UIKit — see [`UIKitShowcaseViewController.swift`](Example/DSWaveformImageExample-iOS/UIKitShowcaseViewController.swift). There's no built-in `ProgressWaveformView`; every app's playback model is different and the masking trick is small enough that wrapping it would just be in your way.
 
-## Zoom & scroll
+## Zoom, timeline & trim
 
-[`InteractiveWaveformView`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformView.swift) adds pinch-to-zoom and drag-to-pan on top of a high-resolution sample cache. Bind `zoom` and `visibleRange` when you need to sync with a playhead or external controls; use [`InteractiveWaveform`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformView.swift) when you just want the gestures.
+Build audio-editor UIs on top of the same analysis pipeline: one high-resolution sample cache, then zoom / pan / trim without re-decoding the file.
+
+### Pinch-to-zoom & pan
+
+[`InteractiveWaveformView`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformView.swift) adds pinch-to-zoom and drag-to-pan. Bind `zoom` and `visibleRange` when you need to sync with a playhead or external controls; use [`InteractiveWaveform`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformView.swift) when you just want the gestures with internal state.
 
 ```swift
 @State private var zoom: CGFloat = 1
@@ -229,28 +245,98 @@ InteractiveWaveformView(
     zoom: $zoom,
     visibleRange: $visibleRange,
     maximumZoom: 8
-)
+) { shape in
+    shape.stroke(
+        LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .leading, endPoint: .trailing),
+        style: StrokeStyle(lineWidth: 3, lineCap: .round)
+    )
+}
 .frame(height: 120)
 ```
 
-Under the hood, analysis runs once at `viewportWidth × scale × maximumZoom`, then [`WaveformSampleViewport`](Sources/DSWaveformImage/WaveformSampleViewport.swift) slices and peak-resamples the visible window for each frame — so gestures stay smooth without re-decoding audio. See `ZoomScrollShowcase` in the example app.
+| Binding | Meaning |
+| --- | --- |
+| `zoom` | `1` = fit the full file; up to `maximumZoom` |
+| `visibleRange` | Normalized window into the file (`0...1` of total duration) |
 
-For an editor-style strip with a **zoom-scaled time ruler** and a **draggable playhead**, use [`InteractiveWaveformTimeline`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformTimeline.swift):
+`Waveform.VisibleRange.from(zoom:start:)` keeps the window span equal to `1 / zoom` and clamps the start so it never scrolls past the ends.
+
+Under the hood, analysis runs once at `viewportWidth × scale × maximumZoom`. At a given zoom the full file is drawn into a **wide** layer; panning only translates that layer so the envelope stays stable (no per-frame re-slice shimmer). Double-tap to reset is left to you — the example does `zoom = 1; visibleRange = .full`.
+
+Inside a parent `ScrollView`, call `.disablesScrollDuringWaveformInteraction()` on the scroll container so pan/pinch aren't stolen mid-gesture.
+
+### Interactive timeline (ruler + playhead + trim)
+
+[`InteractiveWaveformTimeline`](Sources/DSWaveformImageViews/SwiftUI/InteractiveWaveformTimeline.swift) is the editor-style strip: zoomable waveform, **time ruler**, **draggable playhead**, optional **trim / crop handles**, and a **full-file overview**.
 
 ```swift
-@State private var zoom: CGFloat = 2
-@State private var visibleRange: Waveform.VisibleRange = .from(zoom: 2, start: 0.1)
-@State private var progress: Double = 0.35
+@State private var zoom: CGFloat = 1
+@State private var visibleRange: Waveform.VisibleRange = .full
+@State private var progress: Double = 0.35          // playhead, 0...1
+@State private var selection = Waveform.Timeline.Selection(start: 0.15, end: 0.85) // trim
 
 InteractiveWaveformTimeline(
     audioURL: url,
     zoom: $zoom,
     visibleRange: $visibleRange,
-    progress: $progress
+    progress: $progress,
+    selection: $selection,
+    showsTrimming: true,
+    showsOverview: true,
+    rulerStyle: .clock,       // or .decimal
+    maximumZoom: 8,
+    waveformHeight: 110,
+    waveformColors: [.purple, .blue, .cyan]
 )
 ```
 
-Ruler tick intervals come from [`Waveform.Timeline`](Sources/DSWaveformImage/WaveformTimeline.swift) and tighten automatically as you zoom in.
+**Gestures (single recognizer, hit-tested on touch-down):**
+
+- **Pinch** — zoom in/out; the ruler rescales with the visible window
+- **Drag** on the waveform — pan when zoomed in
+- **Drag** the playhead — scrub `progress` (clamped inside the trim)
+- **Drag** the yellow trim handles — update `selection.start` / `selection.end`
+- **Overview** — always shows **100%** of the file; the yellow frame is the trim. Drag the frame to move it, drag its edges to resize
+
+Playhead time labels hide automatically when they would overlap a trim handle.
+
+### Time ruler
+
+[`WaveformTimeRuler`](Sources/DSWaveformImageViews/SwiftUI/WaveformTimeRuler.swift) picks “nice” major/minor tick intervals from the visible duration via [`Waveform.Timeline.majorInterval`](Sources/DSWaveformImage/WaveformTimeline.swift). Labels switch precision with zoom:
+
+| Zoom | Example labels |
+| --- | --- |
+| Coarse (`≥ 1s` ticks) | `0:02`, `0:05` |
+| Medium | `0:02.0`, `0:02.5` |
+| Fine | `0:02.45` |
+
+Styles: `.clock` (`m:ss` / `m:ss.d`) or `.decimal` (`2.0`, `2.5`).
+
+### Trim / crop selection
+
+`Waveform.Timeline.Selection` is a normalized trim window (`start` / `end` in `0...1`, always `start < end`):
+
+```swift
+var selection = Waveform.Timeline.Selection(start: 0.2, end: 0.8)
+selection.setStart(0.1)   // clamped so a minimum span remains
+selection.setEnd(0.9)
+
+let startTime = Waveform.Timeline.time(progress: selection.start, duration: duration)
+let endTime   = Waveform.Timeline.time(progress: selection.end, duration: duration)
+```
+
+Map between pixels and progress with the same helpers the timeline uses:
+
+```swift
+let x = Waveform.Timeline.xPosition(progress: progress, visibleRange: visibleRange, width: width)
+let p = Waveform.Timeline.progress(x: touchX, visibleRange: visibleRange, width: width)
+```
+
+### Overview strip
+
+[`WaveformTimelineOverview`](Sources/DSWaveformImageViews/SwiftUI/WaveformTimelineOverview.swift) can also be used standalone: full-file mini waveform + draggable trim frame + playhead. `InteractiveWaveformTimeline` embeds it when `showsOverview: true`.
+
+See `ZoomScrollShowcase` in the [example app](Example/Shared/ZoomScrollShowcase.swift) for a complete demo (timeline + freeform pinch/pan).
 
 ## Loading remote audio
 
@@ -258,9 +344,12 @@ Ruler tick intervals come from [`Waveform.Timeline`](Sources/DSWaveformImage/Wav
 
 # Migration
 
-### In 15.0.0 (upcoming)
+### In 15.0.0
 
-- **New `InteractiveWaveformView` / `InteractiveWaveform`** — pinch-to-zoom and drag-to-pan SwiftUI views, plus `Waveform.VisibleRange` and `WaveformSampleViewport` helpers for custom zoom UIs.
+- **New `InteractiveWaveformView` / `InteractiveWaveform`** — pinch-to-zoom and drag-to-pan SwiftUI views, plus `Waveform.VisibleRange` and `WaveformSampleViewport` helpers for custom zoom UIs. Pan translates a zoom-cached layer (no per-frame re-slice flicker).
+- **New `InteractiveWaveformTimeline`** — editor-style strip with zoom-aware time ruler, playhead scrubbing, trim/crop handles, and a full-file overview whose frame tracks the trim selection.
+- **New `WaveformTimeRuler` / `WaveformTimelineOverview`** — reusable ruler and overview strip; clock labels add fractional seconds when zoomed in.
+- **New `Waveform.Timeline`** — time formatting, major-tick picking, progress ↔ x mapping, and `Selection` for trim windows.
 - **`Waveform.Style.spectralTint(low:high:)` is a new case.** Exhaustive `switch` statements over `Waveform.Style` will need to add it (or an `@unknown default`).
 - **`Position.middle` waveforms render smaller at `verticalScalingFactor=1`.** The previous math overshot, letting peak-loud samples extend a full canvas height in each direction from the centerline. They now fill exactly the budget the centerline leaves available (half-canvas per direction for `.middle`, full canvas for `.top` / `.bottom`). Bump `verticalScalingFactor` if you want the old visual size.
 - **Stereo + damping** now damps each channel half independently. Previously the damping ran across the concatenated `[allLeft..., allRight...]` array, so only the start of L and the end of R faded; the middle (end of L + start of R) got no damping at all.
