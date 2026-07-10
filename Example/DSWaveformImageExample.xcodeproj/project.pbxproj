@@ -460,7 +460,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.dmrschmidt.DSWaveformImageExample-VisionOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hoangnam714.DSWaveformImageExample-VisionOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
@@ -495,7 +495,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.dmrschmidt.DSWaveformImageExample-VisionOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hoangnam714.DSWaveformImageExample-VisionOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
@@ -517,7 +517,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"DSWaveformImageExample-macOS/Preview Content\"";
-				DEVELOPMENT_TEAM = X9XK2SF8F6;
+				DEVELOPMENT_TEAM = H26VXS6A6Y;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -528,7 +528,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.dmrschmidt.DSWaveformImageExample-macOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hoangnam714.DSWaveformImageExample-macOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -547,7 +547,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"DSWaveformImageExample-macOS/Preview Content\"";
-				DEVELOPMENT_TEAM = X9XK2SF8F6;
+				DEVELOPMENT_TEAM = H26VXS6A6Y;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -558,7 +558,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.dmrschmidt.DSWaveformImageExample-macOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hoangnam714.DSWaveformImageExample-macOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -707,7 +707,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.thietle.ALWaveViewDemo;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hoangnam714.DSWaveformImageExample-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "DSWaveformImageExample-iOS/DSWaveformImageExample-iOS-Bridging-Header.h";
@@ -740,7 +740,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.thietle.ALWaveViewDemo;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hoangnam714.DSWaveformImageExample-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "DSWaveformImageExample-iOS/DSWaveformImageExample-iOS-Bridging-Header.h";

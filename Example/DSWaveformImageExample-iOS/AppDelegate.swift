@@ -2,7 +2,7 @@
 //  AppDelegate.swift
 //  DSWaveformImageExample-iOS
 //
-//  Created by Dennis Schmidt on 27.09.22.
+//  Created by hoangnam714 on 27.09.22.
 //
 
 import UIKit

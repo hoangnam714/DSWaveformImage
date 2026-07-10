@@ -171,7 +171,7 @@ Pass a custom `easing:` closure to shape the falloff (e.g. `{ x in pow(x, 4) }`)
 
 ## Custom shape (SwiftUI)
 
-`WaveformView`'s trailing closure hands you the underlying [`WaveformShape`](Sources/DSWaveformImageViews/SwiftUI/WaveformShape.swift) so you can apply any SwiftUI `ShapeStyle` — `LinearGradient`, masks, animations, anything Shape supports. Thanks to [@alfogrillo](https://github.com/alfogrillo) for the API.
+`WaveformView`'s trailing closure hands you the underlying [`WaveformShape`](Sources/DSWaveformImageViews/SwiftUI/WaveformShape.swift) so you can apply any SwiftUI `ShapeStyle` — `LinearGradient`, masks, animations, anything Shape supports.
 
 ```swift
 WaveformView(audioURL: url) { shape in
@@ -340,7 +340,7 @@ See `ZoomScrollShowcase` in the [example app](Example/Shared/ZoomScrollShowcase.
 
 ## Loading remote audio
 
-`WaveformAnalyzer` and `WaveformImageDrawer` work with local file URLs. For a remote-audio recipe see [#22](https://github.com/dmrschmidt/DSWaveformImage/issues/22).
+`WaveformAnalyzer` and `WaveformImageDrawer` work with local file URLs. Download remote audio to a temporary file first, then pass that local URL in.
 
 # Migration
 
@@ -363,11 +363,11 @@ See `ZoomScrollShowcase` in the [example app](Example/Shared/ZoomScrollShowcase.
 - Minimum deployment target is iOS 15.0, macOS 12.0 to remove internal usage of deprecated APIs.
 - `WaveformAnalyzer` and `WaveformImageDrawer` now return `Result<[Float] | DSImage, Error>` when used with completion handlers.
 - `WaveformAnalyzer` is stateless and takes the URL in `samples(fromAudioAt:count:qos:)` instead of its constructor.
-- `WaveformView` has a new constructor that exposes the underlying `WaveformShape`, see [#78](https://github.com/dmrschmidt/DSWaveformImage/issues/78).
+- `WaveformView` has a new constructor that exposes the underlying `WaveformShape`.
 
 ### In 13.0.0
 
-- `dampening` → `damping` everywhere (most notably in `Waveform.Configuration`). See [#64](https://github.com/dmrschmidt/DSWaveformImage/issues/64).
+- `dampening` → `damping` everywhere (most notably in `Waveform.Configuration`).
 - `.outlined` and `.gradientOutlined` styles were added to `Waveform.Style`.
 - `Waveform.Position` was removed. Move positioning responsibility to the parent view.
 
@@ -375,7 +375,7 @@ See `ZoomScrollShowcase` in the [example app](Example/Shared/ZoomScrollShowcase.
 
 - The rendering pipeline was split out from analysis — implement [`WaveformRenderer`](Sources/DSWaveformImage/Renderers/WaveformRenderer.swift) for custom renderers.
 - New [`CircularWaveformRenderer`](Sources/DSWaveformImage/Renderers/CircularWaveformRenderer.swift).
-- `position` removed from `Waveform.Configuration`, see [0447737](https://github.com/dmrschmidt/DSWaveformImage/commit/044773782092becec0424527f6feef061988db7a).
+- `position` removed from `Waveform.Configuration`.
 - New `Waveform.Style` options need accounting for in `switch` statements.
 
 ### In 11.0.0
@@ -393,48 +393,9 @@ See `ZoomScrollShowcase` in the [example app](Example/Shared/ZoomScrollShowcase.
 
 `Waveform` and the `UIImage` category were removed in 6.0.0 to simplify the API.
 
-# More related iOS Controls
+## Maintainer
 
-Other iOS controls in Swift I maintain:
-
-- [SwiftColorWheel](https://github.com/dmrschmidt/SwiftColorWheel) — a delightful color picker
-- [QRCode](https://github.com/dmrschmidt/QRCode) — a customizable QR code generator
-
-# If you really like this library (aka Sponsoring)
-
-I'm doing all this for fun and joy and because I strongly believe in the power of open source. On the off-chance though, that using my library has brought joy to you and you just feel like saying "thank you", I would smile like a 4-year old getting a huge ice cream cone, if you'd support me via one of the sponsoring buttons ☺️💕
-
-Alternatively, consider supporting me by downloading one of my side project iOS apps. If you're feeling in the mood of sending someone else a lovely gesture of appreciation, maybe check out my iOS app [💌 SoundCard](https://www.soundcard.io) to send them a real postcard with a personal audio message. Or download my ad-supported free to play game [🕹️ Snekris for iOS](https://apps.apple.com/us/app/snekris-play-like-its-1999/id6446217693).
-
-<p float="left">
-  <a href="https://www.buymeacoffee.com/dmrschmidt" target="_blank">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="217" height="60"></a>
-
-  <a href="https://www.snekris.com" target="_blank">
-    <img src="http://snekris.com/images/snekris-banner.png" alt="Play Snekris" width="217" height="60"></a>
-</p>
-
-## See it live in action
-
-[SoundCard — postcards with sound](https://www.soundcard.io) lets you send real, physical postcards with audio messages. Right from your iOS device.
-
-DSWaveformImage is used to draw the waveforms of the audio messages that get printed on the postcards sent by [SoundCard — postcards with audio](https://www.soundcard.io).
-
-&nbsp;
-
-<div align="center">
-    <a href="http://bit.ly/soundcardio">
-        <img src="./Promotion/appstore.svg" alt="Download SoundCard">
-
-Download SoundCard on the App Store.
-    </a>
-</div>
-
-&nbsp;
-
-<a href="http://bit.ly/soundcardio">
-<img src="https://www.soundcard.io/images/opengraph-preview.jpg" alt="Screenshot">
-</a>
+Maintained by [hoangnam714](https://github.com/hoangnam714) — [github.com/hoangnam714/DSWaveformImage](https://github.com/hoangnam714/DSWaveformImage).
 
 ---
 
@@ -449,7 +410,7 @@ swift run WaveformScreenshots
 The iOS-simulator shots (`live-recording.png`, `progress.png`) come from the example app — build, install, launch with `-tab 2` or `-tab 3`, and crop with ImageMagick:
 
 ```bash
-xcrun simctl launch <udid> de.dmrschmidt.DSWaveformImageExample-iOS -tab 2
+xcrun simctl launch <udid> com.hoangnam714.DSWaveformImageExample-iOS -tab 2
 xcrun simctl io <udid> screenshot raw.png
 magick raw.png -crop 1206x2343+0+177 +repage live-recording.png
 ```

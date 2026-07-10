@@ -2,7 +2,7 @@
 //  SCAudioRecorder.h
 //  soundcard
 //
-//  Created by Dennis Schmidt on 27.09.13.
+//  Created by hoangnam714 on 27.09.13.
 //  Copyright (c) 2013 soundcard.io. All rights reserved.
 //
 

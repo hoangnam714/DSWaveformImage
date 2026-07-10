@@ -2,7 +2,7 @@
 //  DSWaveformImageExample_VisionOSApp.swift
 //  DSWaveformImageExample-VisionOS
 //
-//  Created by Antonio Cabezuelo Vivo on 18/10/23.
+//  Created by hoangnam714 on 18/10/23.
 //
 
 import SwiftUI
