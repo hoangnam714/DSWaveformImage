@@ -53,9 +53,16 @@ public struct WaveformTimelineOverview: View {
     public var body: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
+            // Keep draw size and sample budget identical so LinearWaveformRenderer does not
+            // right-align a short buffer (live-recording behaviour) inside this full-file strip.
+            let inset: CGFloat = 2
+            let drawWidth = max(1, width - inset * 2)
+            let scale = DSScreen.scale
             let configuration = Waveform.Configuration(
+                size: CGSize(width: drawWidth, height: height),
                 style: .striped(.init(color: .white, width: 1, spacing: 1)),
-                damping: nil
+                damping: nil,
+                scale: scale
             )
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -63,7 +70,7 @@ public struct WaveformTimelineOverview: View {
 
                 WaveformShape(samples: samples, configuration: configuration)
                     .stroke(waveformColor, style: StrokeStyle(lineWidth: 1, lineCap: .round))
-                    .padding(.horizontal, 2)
+                    .padding(.horizontal, inset)
 
                 // Trim frame in full-file coordinates.
                 trimFrame(width: width)
@@ -79,15 +86,16 @@ public struct WaveformTimelineOverview: View {
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .contentShape(Rectangle())
             .gesture(overviewDrag(width: width))
-            .task(id: audioURL) {
-                await loadSamples(width: width, scale: configuration.scale)
+            .task(id: overviewLoadKey(audioURL: audioURL, width: drawWidth, scale: scale)) {
+                await loadSamples(width: drawWidth, scale: scale)
             }
-            .modifier(OnChange(of: width, action: { newWidth in
-                Task { await loadSamples(width: newWidth, scale: configuration.scale) }
-            }))
         }
         .frame(height: height)
         .preference(key: WaveformInteractionKey.self, value: dragKind != nil)
+    }
+
+    private func overviewLoadKey(audioURL: URL, width: CGFloat, scale: CGFloat) -> String {
+        "\(audioURL.absoluteString)#\(Int(width.rounded()))@\(Int(scale.rounded()))"
     }
 
     private func trimFrame(width: CGFloat) -> some View {
@@ -193,12 +201,13 @@ public struct WaveformTimelineOverview: View {
 
     private func loadSamples(width: CGFloat, scale: CGFloat) async {
         guard width > 0 else { return }
-        // Must match `WaveformView` / renderer expectations: sample count = width × scale.
-        // Fewer samples get right-aligned (live-recording style) and look like a broken preview.
-        let count = max(32, Int(width * scale))
+        // Must match LinearWaveformRenderer: sample count == drawWidth × scale.
+        // Anything shorter is right-aligned and looks like a broken, right-shifted preview.
+        let count = max(32, Int((width * scale).rounded(.up)))
         do {
             let analyzed = try await WaveformAnalyzer().samples(fromAudioAt: audioURL, count: count)
-            await MainActor.run { samples = analyzed }
+            let filled = WaveformSampleViewport.resample(analyzed, to: count, isStereo: false)
+            await MainActor.run { samples = filled }
         } catch {
             assertionFailure(error.localizedDescription)
         }
