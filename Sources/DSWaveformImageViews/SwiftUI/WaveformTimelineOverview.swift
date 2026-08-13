@@ -34,10 +34,10 @@ public struct WaveformTimelineOverview: View {
         progress: Binding<Double>,
         height: CGFloat = 44,
         minimumSpan: Double = 0.01,
-        waveformColor: Color = .white.opacity(0.85),
+        waveformColor: Color = Color.accentColor.opacity(0.85),
         frameColor: Color = Color(red: 1.0, green: 0.84, blue: 0.0),
         playheadColor: Color = Color(red: 0.45, green: 0.75, blue: 1.0),
-        trackColor: Color = Color.white.opacity(0.08)
+        trackColor: Color = Color.primary.opacity(0.08)
     ) {
         self.audioURL = audioURL
         self._selection = selection

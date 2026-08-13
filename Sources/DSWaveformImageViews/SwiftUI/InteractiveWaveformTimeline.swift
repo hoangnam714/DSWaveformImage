@@ -25,6 +25,8 @@ public struct InteractiveWaveformTimeline: View {
     private let showsOverview: Bool
     private let rulerStyle: WaveformTimeRuler.Style
     private let waveformColors: [Color]
+    private let overviewWaveformColor: Color
+    private let overviewTrackColor: Color
     private let playheadLabelHideDistance: CGFloat
     private let handleHitSlop: CGFloat = 28
     private let topBandHeight: CGFloat = 44
@@ -71,6 +73,8 @@ public struct InteractiveWaveformTimeline: View {
         rulerColor: Color = .white.opacity(0.55),
         waveformColors: [Color] = [.purple, .blue, .cyan],
         trimColor: Color = Color(red: 1.0, green: 0.84, blue: 0.0),
+        overviewWaveformColor: Color? = nil,
+        overviewTrackColor: Color? = nil,
         playheadLabelHideDistance: CGFloat = 36
     ) {
         self.audioURL = audioURL
@@ -91,6 +95,13 @@ public struct InteractiveWaveformTimeline: View {
         self.rulerColor = rulerColor
         self.waveformColors = waveformColors
         self.trimColor = trimColor
+        // Prefer an explicit overview color; otherwise reuse the main waveform tint
+        // so light-mode sheets are not stuck with near-invisible white strokes.
+        self.overviewWaveformColor = overviewWaveformColor
+            ?? waveformColors.last
+            ?? Color.accentColor.opacity(0.85)
+        self.overviewTrackColor = overviewTrackColor
+            ?? Color.primary.opacity(0.08)
         self.playheadLabelHideDistance = playheadLabelHideDistance
     }
 
@@ -131,8 +142,10 @@ public struct InteractiveWaveformTimeline: View {
                     audioURL: audioURL,
                     selection: $selection,
                     progress: $progress,
+                    waveformColor: overviewWaveformColor,
                     frameColor: trimColor,
-                    playheadColor: cursorColor
+                    playheadColor: cursorColor,
+                    trackColor: overviewTrackColor
                 )
             }
         }
